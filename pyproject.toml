@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "aio-ddd-utils"
+version = "0.1.0"
+description = "Python async DDD utilites"
+authors = ["Vladislav Vorobyov <vladislav.vorobyov@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+attrs = "^21.4.0"
+marshmallow = "^3.15.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1.1"
+pytest-cov = {extras = ["toml"], version = "^3.0.0"}
+python-dotenv = "^0.20.0"
+poethepoet = "^0.13.1"
+pylama = "^8.3.8"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+filterwarnings = []
+
+[tool.coverage.run]
+omit = []
+
+[tool.coverage.report]
+exclude_lines = [
+    "@abc.abstractmethod",
+    "Protocol",
+    "def __hash__",
+    "pragma: no cover",
+]
+
+[tool.poe.tasks]
+lint = "poetry run pylama ./src --ignore E501 --linters print,pyflakes --format pylint"
+test = "poetry run pytest --cov=aioddd_utils --cov-report=term-missing tests"
+clear = "rm -fr src/*.egg-info dist .pytest_cache .coverage"
