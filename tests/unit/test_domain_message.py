@@ -1,6 +1,3 @@
-
-
-
 from uuid import UUID
 
 import pytest

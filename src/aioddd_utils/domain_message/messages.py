@@ -1,44 +1,11 @@
 import abc
 import typing as t
-from datetime import datetime, time, date, timedelta
-from decimal import Decimal
-from inspect import isclass
-from ipaddress import IPv6Address, IPv4Address, IPv4Interface, IPv6Interface
-from uuid import UUID
 from ._fields import Field
 import attr
-from marshmallow import Schema, EXCLUDE, fields as mf, post_load, missing
+from marshmallow import Schema, EXCLUDE, post_load
 
-from aioddd_utils.message_bus import AbstractDomainMessage, T
-
-_FIELDS_TYPE = {
-    mf.String: str,
-    mf.UUID: UUID,
-    mf.Number: float,
-    mf.Integer: int,
-    mf.Float: float,
-    mf.Decimal: Decimal,
-    mf.Boolean: bool,
-    mf.DateTime: datetime,
-    mf.NaiveDateTime: datetime,
-    mf.AwareDateTime: datetime,
-    mf.Time: time,
-    mf.Date: date,
-    mf.TimeDelta: timedelta,
-    mf.URL: str,
-    mf.Email: str,
-    mf.IP: IPv4Address | IPv6Address,
-    mf.IPv4: IPv4Address,
-    mf.IPv6: IPv6Address,
-    mf.IPInterface: IPv4Interface | IPv6Interface,
-    mf.IPv4Interface: IPv4Interface,
-    mf.IPv6Interface: IPv6Interface,
-}
-
-
-class UnknownMessageType(Exception):
-    def __init__(self, domain: str, message_type: str):
-        super(UnknownMessageType, self).__init__(f'Unknown message type {domain=} {message_type=}')
+from .base import AbstractDomainMessage
+from .exceptions import UnknownMessageType
 
 
 class DomainMessageMeta(abc.ABCMeta):
@@ -113,8 +80,11 @@ class DomainMessageMeta(abc.ABCMeta):
         return fields
 
 
+T = t.TypeVar('T')
+
+
 class BaseMessage(AbstractDomainMessage, metaclass=DomainMessageMeta):
-    __schema__: t.Type[Schema] = Schema
+    __schema__ = Schema
 
     @classmethod
     @t.final

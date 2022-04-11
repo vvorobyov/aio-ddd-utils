@@ -1,4 +1,4 @@
-from .messages import BaseMessage, BaseEvent, BaseCommand, get_message_class
+from .messages import AbstractDomainMessage, BaseMessage, BaseEvent, BaseCommand, get_message_class
 
 
 __all__ = [

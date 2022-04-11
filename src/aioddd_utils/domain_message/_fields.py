@@ -67,24 +67,18 @@ class Field:
 
 
 class String(Field):
-
-    # @t.overload
-    def __get__(self, instance, owner) -> str:
-        pass
+    ...
 
 
 class UUID(Field):
-
-    # @t.overload
-    def __get__(self, instance, owner) -> uuid.UUID:
-        pass
+    ...
 
 
 class _Number(Field):
 
-    def __init__(self, *args, as_string: bool = False, **kwargs):
+    def __init__(self, *, as_string: bool = False, **kwargs):
         self._as_string = as_string
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
 
     def _get_extra_marshmallow_params(self) -> dict:
         params = super()._get_extra_marshmallow_params()
@@ -94,12 +88,9 @@ class _Number(Field):
 
 class Integer(_Number):
 
-    def __init__(self, *args, strict: bool = False, **kwargs):
+    def __init__(self, *, strict: bool = False, **kwargs):
         self._strict = strict
-        super().__init__(*args, **kwargs)
-
-    def __get__(self, instance, owner) -> int:
-        pass
+        super().__init__(**kwargs)
 
     def _get_extra_marshmallow_params(self) -> dict:
         params = super()._get_extra_marshmallow_params()
@@ -109,12 +100,9 @@ class Integer(_Number):
 
 class Float(Field):
 
-    def __init__(self, *args, allow_nan: bool = False, **kwargs):
+    def __init__(self, *, allow_nan: bool = False, **kwargs):
         self._allow_nan = allow_nan
-        super().__init__(*args, **kwargs)
-
-    def __get__(self, instance, owner) -> float:
-        pass
+        super().__init__(**kwargs)
 
     def _get_extra_marshmallow_params(self) -> dict:
         params = super()._get_extra_marshmallow_params()
@@ -122,16 +110,12 @@ class Float(Field):
         return params
 
 
-class Decimal(Field):
+class Decimal(_Number):
 
-    def __init__(self, places: t.Optional[int] = None, rounding: t.Optional[str] = None,
-                 *args, **kwargs):
+    def __init__(self, places: t.Optional[int] = None, rounding: t.Optional[str] = None, **kwargs):
         self._places = places
         self._rounding = rounding
-        super().__init__(*args, **kwargs)
-
-    def __get__(self, instance, owner) -> decimal.Decimal:
-        pass
+        super().__init__(**kwargs)
 
     def _get_extra_marshmallow_params(self) -> dict:
         params = super()._get_extra_marshmallow_params()
@@ -142,16 +126,13 @@ class Decimal(Field):
 
 class Boolean(Field):
 
-    def __init__(self, *args,
+    def __init__(self, *,
                  truthy: t.Optional[set] = None,
                  falsy: t.Optional[set] = None,
                  **kwargs):
         self._truthy = truthy
         self._falsy = falsy
-        super().__init__(*args, **kwargs)
-
-    def __get__(self, instance, owner) -> bool:
-        pass
+        super().__init__(**kwargs)
 
     def _get_extra_marshmallow_params(self) -> dict:
         params = super()._get_extra_marshmallow_params()
@@ -162,24 +143,34 @@ class Boolean(Field):
 
 class DateTime(Field):  # TODO NaiveDateTime, AwareDateTime
 
-    def __get__(self, instance, owner) -> datetime:
-        pass
+    def __init__(self, format: t.Optional[str] = None, **kwargs):
+        self._format = format
+        super(DateTime, self).__init__(**kwargs)
+
+    def _get_extra_marshmallow_params(self) -> dict:
+        params = super()._get_extra_marshmallow_params()
+        params['format'] = self._format
+        return params
 
 
-class Time(Field):
-
-    def __get__(self, instance, owner) -> time:
-        pass
+class Time(DateTime):
+    ...
 
 
-class Date(Field):
-
-    def __get__(self, instance, owner) -> date:
-        pass
+class Date(DateTime):
+    ...
 
 
 class URL(String):
-    pass
+
+    def __init__(self, *, relative: bool = False,
+                 schemes=t.Union[t.Sequence[str], t.Set[str]],
+                 require_tld: bool = True, **kwargs
+                 ):
+        self._relative = relative
+        self._schemes = schemes
+        self._require_tld = require_tld
+        super(URL, self).__init__(**kwargs)
 
 
 class Email(String):
@@ -190,16 +181,3 @@ class Email(String):
 # TODO class List(Field)
 
 
-class Test:
-    str_f = String()
-    int_f = Integer()
-    uuid_f = UUID()
-
-
-def test(v: str):
-    pass
-
-
-obj = Test()
-
-test(obj.str_f)
