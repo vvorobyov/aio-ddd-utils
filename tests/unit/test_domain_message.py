@@ -4,9 +4,8 @@
 from uuid import UUID
 
 import pytest
-from marshmallow import fields as mf
 
-from aioddd_utils.domain_message import BaseEvent, BaseCommand, get_message_class
+from aioddd_utils.domain_message import BaseEvent, BaseCommand, get_message_class, fields as f
 
 
 class TestDomainMessages:
@@ -15,14 +14,14 @@ class TestDomainMessages:
         class TestEvent(BaseEvent):
             __domain_name__ = 'test'
 
-            uuid_field = mf.UUID()
-            str_field = mf.String()
-            int_field = mf.Integer()
+            uuid_field = f.UUID()
+            str_field = f.String()
+            int_field = f.Integer()
 
         obj = TestEvent.load({
             'uuid_field': 'e13f492d-ab8c-40f8-a7f0-2818573cde67',
             'str_field': 'test abc',
-            'int_field': '123',
+            'int_field': 123,
             'other_data': 'fsdfsfsdf',
         })
         assert obj.uuid_field == UUID('e13f492d-ab8c-40f8-a7f0-2818573cde67')
@@ -39,12 +38,12 @@ class TestDomainMessages:
         class TestEvent(BaseEvent):
             __domain_name__ = 'test'
 
-            uuid_field = mf.UUID(required=True)
-            str_field = mf.String(required=True)
-            int_field = mf.Integer(required=True)
+            uuid_field = f.UUID()
+            str_field = f.String()
+            int_field = f.Integer()
 
         class TestEventWithBool(TestEvent):
-            bool_field = mf.Bool(required=True)
+            bool_field = f.Boolean()
 
             @classmethod
             def load(cls, data):
@@ -56,7 +55,7 @@ class TestDomainMessages:
         obj = TestEventWithBool.load({
             'uuid_field': 'e13f492d-ab8c-40f8-a7f0-2818573cde67',
             'str_field': 'test abc',
-            'int_field': '123',
+            'int_field': 123,
             'bool_field': 'false',
             'other_data': 'fsdfsfsdf',
         })
@@ -77,7 +76,7 @@ class TestDomainMessages:
 
         with pytest.raises(ValueError, match='Required set value to "__domain_name__" class attr for'):
             class TestEvent(BaseEvent):
-                str_field = mf.String(required=True)
+                str_field = f.String()
 
     def test_get_document_class(self):
         from aioddd_utils.domain_message import messages
@@ -85,14 +84,14 @@ class TestDomainMessages:
 
         class TestEvent(BaseEvent):
             __domain_name__ = 'test'
-            str_field = mf.String(required=True)
+            str_field = f.String()
 
         class TestCommand(BaseCommand):
             __domain_name__ = 'test'
-            str_field = mf.String(required=True)
+            str_field = f.String()
 
         class TestCommand2(TestCommand):
-            int_field = mf.Integer(required=True)
+            int_field = f.Integer()
 
         assert get_message_class('test', 'testevent') is TestEvent
         assert get_message_class('test', 'testcommand') is TestCommand

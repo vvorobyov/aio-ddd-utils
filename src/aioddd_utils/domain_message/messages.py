@@ -1,12 +1,15 @@
+import abc
 import typing as t
 from datetime import datetime, time, date, timedelta
 from decimal import Decimal
 from inspect import isclass
 from ipaddress import IPv6Address, IPv4Address, IPv4Interface, IPv6Interface
 from uuid import UUID
-
+from ._fields import Field
 import attr
 from marshmallow import Schema, EXCLUDE, fields as mf, post_load, missing
+
+from aioddd_utils.message_bus import AbstractDomainMessage, T
 
 _FIELDS_TYPE = {
     mf.String: str,
@@ -38,7 +41,7 @@ class UnknownMessageType(Exception):
         super(UnknownMessageType, self).__init__(f'Unknown message type {domain=} {message_type=}')
 
 
-class DomainMessageMeta(type):
+class DomainMessageMeta(abc.ABCMeta):
 
     def __new__(mcs, name: str, bases: tuple, attrs: dict):
         module = attrs['__module__']
@@ -64,33 +67,20 @@ class DomainMessageMeta(type):
     def _get_attrs_fields(mcs, attrs: dict[str, t.Any]) -> dict[str, t.Any]:
         fields = {}
         for key, value in attrs.items():
-            if ('Meta' in key and isclass(value)) or key in ['dump', 'load']:
+            if key in ['dump', 'load']:
                 continue
-            elif isinstance(value, mf.Field):
-                fields[key] = mcs._convert_field_to_attrib(value)
+            elif isinstance(value, Field):
+                fields[key] = value.get_attrib()
             else:
                 fields[key] = value
         return fields
 
-    @staticmethod
-    def _convert_field_to_attrib(field: mf.Field):
-        params = {}
-        if type(field) in _FIELDS_TYPE:
-            params['type'] = _FIELDS_TYPE[type(field)]
-
-        if field.required is False:
-            params['default'] = None
-
-        if field.load_default is not missing:
-            params['default'] = field.default
-
-        return attr.ib(**params)
-
     @classmethod
-    def _create_schema_class(mcs, message_class: object, fields: dict[str, t.Any], base_schema=Schema) -> t.Type[Schema]:
+    def _create_schema_class(mcs, message_class: t.Type[AbstractDomainMessage],
+                             fields: dict[str, t.Any], base_schema=Schema) -> t.Type[Schema]:
         attrs = fields.copy()
 
-        def load_data(self, data, many, **kwargs):
+        def load_data(self, data: t.Union[dict, list[dict]], many, **kwargs):
             if many:
                 return tuple(message_class(**item) for item in data)
             else:
@@ -109,45 +99,35 @@ class DomainMessageMeta(type):
         """
         fields = {}
         for key, value in attrs.items():
-            if key == 'SchemaMeta' and isclass(value):
-                fields['Meta'] = value
-            if isinstance(value, mf.Field):
+            if isinstance(value, Field):
                 if key.startswith('_'):
-                    fields[value.attribute] = value
-
+                    raise ValueError("Can't use private field with domain message class")
                 else:
-                    fields[key] = value
-        if 'Meta' not in fields:
-            class Meta:
-                pass
-            fields['Meta'] = Meta
+                    fields[key] = value.get_marshmallow_field()
 
-        fields['Meta'].unknown = EXCLUDE
+        class Meta:
+            unknown = EXCLUDE
+
+        fields['Meta'] = Meta
 
         return fields
 
 
-T = t.TypeVar('T')
-
-
-class BaseMessage(metaclass=DomainMessageMeta):
+class BaseMessage(AbstractDomainMessage, metaclass=DomainMessageMeta):
     __schema__: t.Type[Schema] = Schema
-    __domain_name__: str
 
     @classmethod
     @t.final
     def load(cls: t.Type[T], data: dict) -> T:
         if cls in [BaseMessage, BaseEvent, BaseCommand]:
-            TypeError('Can not use with Base domain message classes')
-        schema = cls.__schema__()
-        return schema.load(data)
+            TypeError('Can not use with base domain message classes')
+        return super(BaseMessage, cls).load(data)
 
     @t.final
     def dump(self) -> dict:
         if isinstance(self, (BaseMessage, BaseEvent, BaseCommand)):
-            TypeError('Can not use with Base domain message classes')
-        schema = self.__schema__()
-        return schema.dump(self)
+            TypeError('Can not use with base domain message classes')
+        return super(BaseMessage, self).dump()
 
 
 class BaseEvent(BaseMessage):
@@ -158,13 +138,11 @@ class BaseCommand(BaseMessage):
     pass
 
 
-MESSAGES_REGISTRY: dict[tuple[str, str], BaseMessage] = {}
+MESSAGES_REGISTRY: dict[tuple[str, str], t.Type[AbstractDomainMessage]] = {}
 
 
-def get_message_class(domain_name: str, name: str) -> BaseMessage:
+def get_message_class(domain_name: str, name: str) -> t.Type[AbstractDomainMessage]:
     klass = MESSAGES_REGISTRY.get((domain_name.upper(), name.upper()), None)
     if klass is None:
         raise UnknownMessageType(domain_name, name)
     return klass
-
-
