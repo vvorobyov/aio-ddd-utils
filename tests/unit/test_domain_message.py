@@ -1,3 +1,5 @@
+from logging import Logger
+from typing import TypeVar, Generic
 from uuid import UUID
 
 import pytest
@@ -48,7 +50,6 @@ class TestDomainMessages:
 
             def dump(self, data):
                 pass
-
         obj = TestEventWithBool.load({
             'uuid_field': 'e13f492d-ab8c-40f8-a7f0-2818573cde67',
             'str_field': 'test abc',
@@ -94,3 +95,23 @@ class TestDomainMessages:
         assert get_message_class('test', 'testcommand') is TestCommand
         assert get_message_class('test', 'testcommand2') is TestCommand2
 
+class TestFields:
+
+    def test_nested_field(self):
+        class Test(BaseEvent):
+            __domain_name__ = 'test'
+            int_field = f.Integer()
+            str_field = f.String()
+
+        class Test2(BaseEvent):
+            uuid_f = f.UUID()
+
+        class TestNested(BaseEvent):
+            test = f.Nested(Test, many=True)
+            test2 = f.Nested(Test2)
+
+        def test(t: Test):
+            pass
+
+        obj = TestNested()
+        obj.test.

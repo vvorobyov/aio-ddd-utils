@@ -1,11 +1,10 @@
-import decimal
 import typing as t
-import uuid
-from datetime import datetime, time, date
 
 import attr
 from attr import NOTHING
 from marshmallow import fields as mf, utils as mu
+
+from aioddd_utils.message_bus import AbstractDomainMessage
 
 
 class Field:
@@ -177,7 +176,23 @@ class Email(String):
     pass
 
 
+_T = t.TypeVar('_T', bound=AbstractDomainMessage)
+
+
+class Nested(Field):
+    def __init__(self, nested, *, many: bool = False, **kwargs):
+        self._nested = nested.__schema__
+        self._many = many
+        super().__init__(**kwargs)
+
+    def __get__(self, instance, owner):
+        ...
+
+    def _get_extra_marshmallow_params(self) -> dict:
+        params = super()._get_extra_marshmallow_params()
+        params['nested'] = self._nested
+        params['many'] = self._many
+        return params
+
 # TODO class Nested(Field)
 # TODO class List(Field)
-
-

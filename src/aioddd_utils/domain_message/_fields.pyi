@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, time, date
 
 from . import fields as f
+from ..message_bus import AbstractDomainMessage
 
 
 class String:
@@ -59,6 +60,18 @@ class URL:
 class Email:
     @t.overload
     def __get__(self, instance, owner) -> str: ...
+
+
+# _T = t.TypeVar('_T')
+_T = t.TypeVar('_T')
+
+class Nested:
+    @t.overload
+    def __new__(cls, nested: t.Type[_T], *, many: bool = False, **kwargs)-> _T: ...
+    @t.overload
+    def __new__(cls, nested: t.Type[_T], *, many: bool = True, **kwargs)-> tuple[_T]: ...
+    # def __get__(self, instance, owner) -> _T:  # type: ignore
+    #     ...
 
 
 
