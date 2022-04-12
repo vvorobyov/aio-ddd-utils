@@ -4,13 +4,14 @@ from uuid import UUID
 
 import pytest
 
-from aioddd_utils.domain_message import BaseEvent, BaseCommand, get_message_class, fields as f
+from aioddd_utils.domain_message import Event, Command, get_message_class, fields as f
+from aioddd_utils.domain_message.messages import Object
 
 
 class TestDomainMessages:
 
     def test_message_meta(self):
-        class TestEvent(BaseEvent):
+        class TestEvent(Event):
             __domain_name__ = 'test'
 
             uuid_field = f.UUID()
@@ -34,7 +35,7 @@ class TestDomainMessages:
         }
 
     def test_message_meta_inheritance(self):
-        class TestEvent(BaseEvent):
+        class TestEvent(Event):
             __domain_name__ = 'test'
 
             uuid_field = f.UUID()
@@ -73,18 +74,18 @@ class TestDomainMessages:
     def test_not_set_domain_name(self):
 
         with pytest.raises(ValueError, match='Required set value to "__domain_name__" class attr for'):
-            class TestEvent(BaseEvent):
+            class TestEvent(Event):
                 str_field = f.String()
 
     def test_get_document_class(self):
         from aioddd_utils.domain_message import messages
         messages.MESSAGES_REGISTRY = {}
 
-        class TestEvent(BaseEvent):
+        class TestEvent(Event):
             __domain_name__ = 'test'
             str_field = f.String()
 
-        class TestCommand(BaseCommand):
+        class TestCommand(Command):
             __domain_name__ = 'test'
             str_field = f.String()
 
@@ -95,23 +96,33 @@ class TestDomainMessages:
         assert get_message_class('test', 'testcommand') is TestCommand
         assert get_message_class('test', 'testcommand2') is TestCommand2
 
+
 class TestFields:
 
     def test_nested_field(self):
-        class Test(BaseEvent):
-            __domain_name__ = 'test'
+        class Test(Object):
             int_field = f.Integer()
             str_field = f.String()
 
-        class Test2(BaseEvent):
-            uuid_f = f.UUID()
+        class Test2(Object):
+            test = f.Nested(Test, many=False)
 
-        class TestNested(BaseEvent):
-            test = f.Nested(Test, many=True)
+        class TestNested(Event):
+            __domain_name__ = 'test'
             test2 = f.Nested(Test2)
 
-        def test(t: Test):
-            pass
+        test_data = {
+            'test2': {
+                'test': {
+                    'int_field': 123,
+                    'str_field': 'abc',
+                }
+            }
+        }
 
-        obj = TestNested()
-        obj.test.
+        obj = TestNested.load(test_data)
+        assert obj == TestNested(
+            test2=Test2(test=Test(int_field=123, str_field='abc'))
+        )
+
+        assert obj.dump() == test_data

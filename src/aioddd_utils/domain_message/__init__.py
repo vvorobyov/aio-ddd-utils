@@ -1,9 +1,9 @@
 from .base import AbstractDomainMessage
 
-from .messages import BaseEvent, BaseCommand, get_message_class
+from .messages import Event, Command, get_message_class
 
 
 __all__ = [
-    'BaseEvent', 'BaseCommand', 'get_message_class',
+    'Event', 'Command', 'get_message_class',
     'fields', 'exceptions',
 ]

@@ -12,21 +12,23 @@ class DomainMessageMeta(abc.ABCMeta):
 
     def __new__(mcs, name: str, bases: tuple, attrs: dict):
         module = attrs['__module__']
-        if module == __name__ and 'Base' in name:
+        if module == __name__:
             return super().__new__(mcs, name, bases, attrs)
 
         attrs_fields = mcs._get_attrs_fields(attrs)
         klass = super().__new__(mcs, name, bases, attrs_fields)
 
-        base_class = next((base for base in bases if issubclass(base, BaseMessage)), Schema)
+        base_class = next((base for base in bases if issubclass(base, AbstractDomainMessage)), Schema)
         schema_fields = mcs._get_fields_from_attrs(attrs)
-        schema = mcs._create_schema_class(klass, schema_fields, base_class.__schema__)
-        klass.__schema__ = schema
+        schema = mcs._create_schema_class(klass, schema_fields, type(base_class.__schema__))
+        klass.__schema__ = schema()
 
-        domain: str = getattr(klass, '__domain_name__', None)
-        if domain is None:
-            raise ValueError(f'Required set value to "__domain_name__" class attr for {klass}')
-        MESSAGES_REGISTRY[(domain.upper(), name.upper())] = klass
+        if not issubclass(base_class, Object):
+            domain: str = getattr(klass, '__domain_name__', None)
+            if domain is None:
+                raise ValueError(f'Required set value to "__domain_name__" class attr for {klass}')
+            if not issubclass(base_class, Object):
+                MESSAGES_REGISTRY[(domain.upper(), name.upper())] = klass
 
         return attr.s(frozen=True)(klass)
 
@@ -84,27 +86,25 @@ T = t.TypeVar('T')
 
 
 class BaseMessage(AbstractDomainMessage, metaclass=DomainMessageMeta):
-    __schema__ = Schema
-
     @classmethod
     @t.final
     def load(cls: t.Type[T], data: dict) -> T:
-        if cls in [BaseMessage, BaseEvent, BaseCommand]:
-            TypeError('Can not use with base domain message classes')
-        return super(BaseMessage, cls).load(data)
+        return cls.__schema__.load(data)
 
     @t.final
     def dump(self) -> dict:
-        if isinstance(self, (BaseMessage, BaseEvent, BaseCommand)):
-            TypeError('Can not use with base domain message classes')
-        return super(BaseMessage, self).dump()
+        return self.__schema__.dump(self)
 
 
-class BaseEvent(BaseMessage):
+class Event(BaseMessage):
     pass
 
 
-class BaseCommand(BaseMessage):
+class Command(BaseMessage):
+    pass
+
+
+class Object(AbstractDomainMessage, metaclass=DomainMessageMeta):
     pass
 
 

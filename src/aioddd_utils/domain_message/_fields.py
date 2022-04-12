@@ -4,8 +4,6 @@ import attr
 from attr import NOTHING
 from marshmallow import fields as mf, utils as mu
 
-from aioddd_utils.message_bus import AbstractDomainMessage
-
 
 class Field:
     __marshmallow_field__: t.Type[mf.Field]
@@ -174,9 +172,6 @@ class URL(String):
 
 class Email(String):
     pass
-
-
-_T = t.TypeVar('_T', bound=AbstractDomainMessage)
 
 
 class Nested(Field):
