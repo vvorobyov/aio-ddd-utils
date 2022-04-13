@@ -50,10 +50,7 @@ class DomainMessageMeta(abc.ABCMeta):
         attrs = fields.copy()
 
         def load_data(self, data: t.Union[dict, list[dict]], many, **kwargs):
-            if many:
-                return tuple(message_class(**item) for item in data)
-            else:
-                return message_class(**data)
+            return message_class(**data)
 
         attrs['__load_message_class__'] = post_load(load_data)
         klass = type(message_class.__name__+'Schema', (base_schema,), attrs)

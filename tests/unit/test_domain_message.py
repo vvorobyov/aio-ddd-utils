@@ -119,10 +119,10 @@ class TestFields:
                 }
             }
         }
-
         obj = TestNested.load(test_data)
+        
         assert obj == TestNested(
-            test2=Test2(test=Test(int_field=123, str_field='abc'))
+            test2=Test2(test=Test(int_field=123, str_field='abc'),)
         )
 
         assert obj.dump() == test_data

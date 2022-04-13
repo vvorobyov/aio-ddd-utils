@@ -43,6 +43,7 @@ class Field:
             order=None,
             on_setattr=None,
         )
+        params.update(self._get_extra_attrib_params())
         return attr.ib(**params)
 
     def get_marshmallow_field(self) -> t.Optional[mf.Field]:
@@ -54,10 +55,13 @@ class Field:
             allow_none=self._default is None,
             required=True,
             error_messages=self._error_messages,
-            **self._get_extra_marshmallow_params()
         )
+        params.update(self._get_extra_marshmallow_params())
         field_class = getattr(mf, type(self).__name__)
         return field_class(**params)
+
+    def _get_extra_attrib_params(self) -> dict:
+        return {}
 
     def _get_extra_marshmallow_params(self) -> dict:
         return {}
@@ -176,7 +180,7 @@ class Email(String):
 
 class Nested(Field):
     def __init__(self, nested, *, many: bool = False, **kwargs):
-        self._nested = nested.__schema__
+        self._nested = type(nested.__schema__)
         self._many = many
         super().__init__(**kwargs)
 
@@ -188,6 +192,13 @@ class Nested(Field):
         params['nested'] = self._nested
         params['many'] = self._many
         return params
+
+    def _get_extra_attrib_params(self) -> dict:
+        extra_params = super(Nested, self)._get_extra_attrib_params()
+        if self._many:
+            extra_params['converter'] = lambda x: tuple(x)
+        return extra_params
+
 
 # TODO class Nested(Field)
 # TODO class List(Field)

@@ -63,16 +63,11 @@ class Email:
     def __get__(self, instance, owner) -> str: ...
 
 
-# _T = t.TypeVar('_T')
 _T = t.TypeVar('_T', bound=Object)
 
 class Nested:
     @t.overload
-    def __new__(cls, nested: t.Type[_T], *, many: bool = True, **kwargs)-> tuple[_T]: ...
-    @t.overload
-    def __new__(cls, nested: t.Type[_T], *, many: bool = False, **kwargs)-> _T: ...
-    # def __get__(self, instance, owner) -> _T:  # type: ignore
-    #     ...
+    def __new__(cls, nested: t.Type[_T], *, many: bool = False, **kwargs)-> t.Union[tuple[_T], _T]: ...
 
 
 
