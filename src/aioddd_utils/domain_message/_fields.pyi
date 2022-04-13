@@ -2,73 +2,82 @@ import decimal
 import typing as t
 import uuid
 from datetime import datetime, time, date
-
-from . import fields as f
+from marshmallow import fields as mf
 from .messages import Object
-from ..message_bus import AbstractDomainMessage
 
+__all__ = ['String', 'UUID', 'Integer', 'Float',
+           'Boolean', 'DateTime', 'Time', 'Date',
+           'URL', 'Email',
+           'Nested', 'List']
 
-class String:
+_V = t.TypeVar('_V')
+
+class Field(t.Generic[_V]):
+    ...
+
+class String(Field):
     @t.overload
     def __get__(self, instance, owner) -> str: ...
 
 
-class UUID:
+class UUID(Field):
     @t.overload
     def __get__(self, instance, owner) -> uuid.UUID: ...
 
 
-class Integer:
+class Integer(Field):
     @t.overload
     def __get__(self, instance, owner) -> int: ...
 
 
-class Float:
+class Float(Field):
     @t.overload
     def __get__(self, instance, owner) -> float: ...
 
 
-class Decimal:
+class Decimal(Field):
     @t.overload
     def __get__(self, instance, owner) -> decimal.Decimal: ...
 
 
-class Boolean:
+class Boolean(Field):
     @t.overload
     def __get__(self, instance, owner) -> bool: ...
 
 
-class DateTime:
+class DateTime(Field):
     @t.overload
     def __get__(self, instance, owner) -> datetime: ...
 
 
-class Time:
+class Time(Field):
     @t.overload
     def __get__(self, instance, owner) -> time: ...
 
 
-class Date:
+class Date(Field):
     @t.overload
     def __get__(self, instance, owner) -> date: ...
 
 
-class URL:
+class URL(Field):
     @t.overload
     def __get__(self, instance, owner) -> str: ...
 
 
-class Email:
+class Email(Field):
     @t.overload
     def __get__(self, instance, owner) -> str: ...
 
 
 _T = t.TypeVar('_T', bound=Object)
 
-class Nested:
+class Nested(Field):
     @t.overload
     def __new__(cls, nested: t.Type[_T], *, many: bool = False, **kwargs)-> t.Union[tuple[_T], _T]: ...
 
 
-
+class List(Field):
+    @t.overload
+    def __new__(cls, cls_or_instance: Field[_T], *, many: bool = False, **kwargs)-> tuple[_T]: ...
 

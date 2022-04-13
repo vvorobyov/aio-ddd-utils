@@ -1,5 +1,3 @@
-from logging import Logger
-from typing import TypeVar, Generic
 from uuid import UUID
 
 import pytest
@@ -51,6 +49,7 @@ class TestDomainMessages:
 
             def dump(self, data):
                 pass
+
         obj = TestEventWithBool.load({
             'uuid_field': 'e13f492d-ab8c-40f8-a7f0-2818573cde67',
             'str_field': 'test abc',
@@ -72,7 +71,6 @@ class TestDomainMessages:
         }
 
     def test_not_set_domain_name(self):
-
         with pytest.raises(ValueError, match='Required set value to "__domain_name__" class attr for'):
             class TestEvent(Event):
                 str_field = f.String()
@@ -120,9 +118,28 @@ class TestFields:
             }
         }
         obj = TestNested.load(test_data)
-        
+
         assert obj == TestNested(
-            test2=Test2(test=Test(int_field=123, str_field='abc'),)
+            test2=Test2(test=Test(int_field=123, str_field='abc'), )
         )
 
         assert obj.dump() == test_data
+
+    def test_list_field(self):
+        class TestList(Event):
+            __domain_name__ = 'test'
+            list_i = f.List(f.Integer())
+            list_s = f.List(f.String())
+        test_data = {
+            'list_i': [1, 2, 3, 4, 5],
+            'list_s': ['1', '2', '3', '4', '5']
+        }
+        obj = TestList.load(test_data)
+        assert obj == TestList(list_i=[1, 2, 3, 4, 5], list_s=['1', '2', '3', '4', '5'])
+        assert isinstance(obj.list_i, tuple)
+        assert isinstance(obj.list_s, tuple)
+        assert obj.dump() == test_data
+
+        a = f.Field
+
+

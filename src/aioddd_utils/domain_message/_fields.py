@@ -4,9 +4,10 @@ import attr
 from attr import NOTHING
 from marshmallow import fields as mf, utils as mu
 
+_V = t.TypeVar('_V')
+
 
 class Field:
-    __marshmallow_field__: t.Type[mf.Field]
 
     def __init__(self,
                  *,
@@ -69,6 +70,9 @@ class Field:
 
 class String(Field):
     ...
+
+
+# String = _String[str]
 
 
 class UUID(Field):
@@ -200,5 +204,22 @@ class Nested(Field):
         return extra_params
 
 
-# TODO class Nested(Field)
+class List(Field):
+    def __init__(self, cls_or_instance: Field, **kwargs):
+        self._cls_or_instance: Field = cls_or_instance
+        super().__init__(**kwargs)
+
+    def _get_extra_marshmallow_params(self) -> dict:
+        params = super()._get_extra_marshmallow_params()
+        params['cls_or_instance'] = self._cls_or_instance.get_marshmallow_field()
+        return params
+
+    def _get_extra_attrib_params(self) -> dict:
+        extra_params = super()._get_extra_attrib_params()
+        extra_params['converter'] = lambda x: tuple(x)
+        return extra_params
+
+
+
+
 # TODO class List(Field)

@@ -13,23 +13,22 @@ class DomainMessageMeta(abc.ABCMeta):
     def __new__(mcs, name: str, bases: tuple, attrs: dict):
         module = attrs['__module__']
         if module == __name__:
-            return super().__new__(mcs, name, bases, attrs)
+            klass = super().__new__(mcs, name, bases, attrs)
+        else:
+            attrs_fields = mcs._get_attrs_fields(attrs)
+            klass = super().__new__(mcs, name, bases, attrs_fields)
 
-        attrs_fields = mcs._get_attrs_fields(attrs)
-        klass = super().__new__(mcs, name, bases, attrs_fields)
+            base_class = next((base for base in bases if issubclass(base, AbstractDomainMessage)), Schema)
+            schema_fields = mcs._get_fields_from_attrs(attrs)
+            schema = mcs._create_schema_class(klass, schema_fields, type(base_class.__schema__))
+            klass.__schema__ = schema()
 
-        base_class = next((base for base in bases if issubclass(base, AbstractDomainMessage)), Schema)
-        schema_fields = mcs._get_fields_from_attrs(attrs)
-        schema = mcs._create_schema_class(klass, schema_fields, type(base_class.__schema__))
-        klass.__schema__ = schema()
-
-        if not issubclass(base_class, Object):
-            domain: str = getattr(klass, '__domain_name__', None)
-            if domain is None:
-                raise ValueError(f'Required set value to "__domain_name__" class attr for {klass}')
             if not issubclass(base_class, Object):
-                MESSAGES_REGISTRY[(domain.upper(), name.upper())] = klass
-
+                domain: str = getattr(klass, '__domain_name__', None)
+                if domain is None:
+                    raise ValueError(f'Required set value to "__domain_name__" class attr for {klass}')
+                if not issubclass(base_class, Object):
+                    MESSAGES_REGISTRY[(domain.upper(), name.upper())] = klass
         return attr.s(frozen=True)(klass)
 
     @classmethod
