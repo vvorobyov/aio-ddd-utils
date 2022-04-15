@@ -27,7 +27,9 @@ class DomainMessageMeta(abc.ABCMeta):
                 domain: str = getattr(klass, '__domain_name__', None)
                 if domain is None:
                     raise ValueError(f'Required set value to "__domain_name__" class attr for {klass}')
-                if not issubclass(base_class, Object):
+                register_flag = getattr(klass, '__registered__', True)
+                setattr(klass, '__registered__', register_flag)
+                if not issubclass(base_class, Object) and register_flag:
                     MESSAGES_REGISTRY[(domain.upper(), name.upper())] = klass
         return attr.s(frozen=True)(klass)
 

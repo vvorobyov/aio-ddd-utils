@@ -3,7 +3,9 @@ from uuid import UUID
 import pytest
 
 from aioddd_utils.domain_message import Event, Command, get_message_class, fields as f
+
 from aioddd_utils.domain_message.messages import Object
+
 
 
 class TestDomainMessages:
@@ -42,13 +44,6 @@ class TestDomainMessages:
 
         class TestEventWithBool(TestEvent):
             bool_field = f.Boolean()
-
-            @classmethod
-            def load(cls, data):
-                pass
-
-            def dump(self, data):
-                pass
 
         obj = TestEventWithBool.load({
             'uuid_field': 'e13f492d-ab8c-40f8-a7f0-2818573cde67',
@@ -140,6 +135,5 @@ class TestFields:
         assert isinstance(obj.list_s, tuple)
         assert obj.dump() == test_data
 
-        a = f.Field
 
 

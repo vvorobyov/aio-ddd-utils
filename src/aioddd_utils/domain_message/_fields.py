@@ -7,7 +7,7 @@ from marshmallow import fields as mf, utils as mu
 _V = t.TypeVar('_V')
 
 
-class Field:
+class Field(t.Generic[_V]):
 
     def __init__(self,
                  *,
@@ -24,7 +24,13 @@ class Field:
         self._error_messages = error_messages
         self._data_key = data_key
 
-    def __get__(self, instance, owner):
+    @t.overload
+    def __get__(self, instance: None, owner: None) -> t.Type['Field[_V]']: ...
+
+    @t.overload
+    def __get__(self, instance: object, owner: t.Type[object]) -> _V: ...
+
+    def __get__(self, instance, owner) -> t.Union['Field[_V]', _V]:
         pass
 
     def get_attrib(self):
@@ -148,7 +154,7 @@ class Boolean(Field):
 
 class DateTime(Field):  # TODO NaiveDateTime, AwareDateTime
 
-    def __init__(self, format: t.Optional[str] = None, **kwargs):
+    def __init__(self, format: t.Optional[str] = None, **kwargs):  # noqa
         self._format = format
         super(DateTime, self).__init__(**kwargs)
 
@@ -198,7 +204,7 @@ class Nested(Field):
         return params
 
     def _get_extra_attrib_params(self) -> dict:
-        extra_params = super(Nested, self)._get_extra_attrib_params()
+        extra_params = super()._get_extra_attrib_params()
         if self._many:
             extra_params['converter'] = lambda x: tuple(x)
         return extra_params
@@ -218,8 +224,3 @@ class List(Field):
         extra_params = super()._get_extra_attrib_params()
         extra_params['converter'] = lambda x: tuple(x)
         return extra_params
-
-
-
-
-# TODO class List(Field)
