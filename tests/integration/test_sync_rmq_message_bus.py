@@ -51,7 +51,6 @@ class TestSyncAMQPMessagebus:
 
 class TestDomainBus:
     def test_init(self, load_environment):
-
         class TestEvent1(Event):
             __domain_name__ = 'ddd-test'
 
@@ -79,31 +78,30 @@ class TestDomainBus:
         assert db.registered_events == {TestEvent1, TestEvent2}
         assert db.registered_commands == {TestCommand1}
 
-    def test_start(self, load_environment):
+    def test_start(self, rabbit):
+        with rabbit() as rmq:
+            class TestEvent1(Event):
+                __domain_name__ = rmq.vhost
 
-        class TestEvent1(Event):
-            __domain_name__ = 'ddd-test'
+            class TestEvent2(Event):
+                __domain_name__ = rmq.vhost
 
-        class TestEvent2(Event):
-            __domain_name__ = 'ddd-test'
+            class TestCommand1(Command):
+                __domain_name__ = rmq.vhost
 
-        class TestCommand1(Command):
-            __domain_name__ = 'ddd-test'
+            mb = SyncAMQPMessagebus(self_domain=rmq.vhost,
+                                    host=rmq.host,
+                                    port=rmq.port,
+                                    username=rmq.username,
+                                    password=rmq.password)
 
-        mb1 = SyncAMQPMessagebus()
-        mb1.register(TestEvent1)
-        mb1.register(TestEvent2)
-        mb1.register(TestCommand1)
-        import os
-        os.environ['DDD_SELFDOMAIN'] = 'TEST_DDD_SELFDOMAIN'
+            mb.register(TestEvent1)
+            mb.register(TestEvent2)
+            mb.register(TestCommand1)
 
-        mb2 = SyncAMQPMessagebus()
-        mb2.register(TestEvent1)
-        mb2.register(TestEvent2)
-        mb2.register(TestCommand1)
-        db1 = DomainBus('ddd-test', mb1, permanent_consume=False)
-        db2 = DomainBus('ddd-test', mb2, permanent_consume=False)
-        db1.start()
-        db2.start()
-        print()
+            db = DomainBus(rmq.vhost, mb, permanent_consume=False)
+            db.start()
+            print()
 
+    def test_create_vhost(self, rabbit):
+        print(rabbit)
