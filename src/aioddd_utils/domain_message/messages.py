@@ -37,7 +37,7 @@ class DomainMessageMeta(abc.ABCMeta):
     def _get_attrs_fields(mcs, attrs: dict[str, t.Any]) -> dict[str, t.Any]:
         fields = {}
         for key, value in attrs.items():
-            if key in ['dump', 'load']:
+            if key in ['dump', 'load', 'dumps', 'loads']:
                 continue
             elif isinstance(value, Field):
                 fields[key] = value.get_attrib()
@@ -89,9 +89,18 @@ class BaseMessage(AbstractDomainMessage, metaclass=DomainMessageMeta):
     def load(cls: t.Type[T], data: dict) -> T:
         return cls.__schema__.load(data)
 
+    @classmethod
+    @t.final
+    def loads(cls: t.Type[T], data: str) -> T:
+        return cls.__schema__.loads(data)
+
     @t.final
     def dump(self) -> dict:
         return self.__schema__.dump(self)
+
+    @t.final
+    def dumps(self) -> str:
+        return self.__schema__.dumps(self)
 
 
 class Event(BaseMessage):

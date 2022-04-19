@@ -7,7 +7,6 @@ from aioddd_utils.domain_message import Event, Command, get_message_class, field
 from aioddd_utils.domain_message.messages import Object
 
 
-
 class TestDomainMessages:
 
     def test_message_meta(self):
@@ -47,7 +46,7 @@ class TestDomainMessages:
 
         obj = TestEventWithBool.load({
             'uuid_field': 'e13f492d-ab8c-40f8-a7f0-2818573cde67',
-            'str_field': 'test abc',
+            'str_field': 'Тестовый текст',
             'int_field': 123,
             'bool_field': 'false',
             'other_data': 'fsdfsfsdf',
@@ -55,15 +54,18 @@ class TestDomainMessages:
 
         assert obj.uuid_field == UUID('e13f492d-ab8c-40f8-a7f0-2818573cde67')
         assert obj.int_field == 123
-        assert obj.str_field == 'test abc'
+        assert obj.str_field == 'Тестовый текст'
         assert obj.bool_field is False
 
         assert obj.dump() == {
             'uuid_field': 'e13f492d-ab8c-40f8-a7f0-2818573cde67',
-            'str_field': 'test abc',
+            'str_field': 'Тестовый текст',
             'int_field': 123,
             'bool_field': False,
         }
+
+        json_data = obj.dumps()
+        assert TestEventWithBool.loads(json_data) == obj
 
     def test_not_set_domain_name(self):
         with pytest.raises(ValueError, match='Required set value to "__domain_name__" class attr for'):
