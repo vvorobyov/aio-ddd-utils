@@ -13,10 +13,10 @@ def random_word() -> str:
 @pytest.fixture
 def rabbit(load_environment):
     class Rabbit:
-        def __init__(self, vhost: str = None, username: str = None, password: str = None):
+        def __init__(self, vhost: str = None, username: str = None, password: str = 'test'):
             from urllib.parse import ParseResult
             from environ import Env
-            from pyrabbit.api import Client
+            from aiorabbitmq_admin import AdminAPI
 
             env = Env()
             self.vhost = vhost or f'{random_word().lower()}-{random_word().lower()}'
@@ -24,21 +24,25 @@ def rabbit(load_environment):
             self.host = url.hostname
             self.port = env.int('TEST_RABBIT_AMQP_PORT')
             self.username = username or self.vhost
-            self.password = password or 'test'
-            url_port = (':' + str(url.port)) if url.port else ''
+            self.password = password
+            self.url = f'amqp://{self.username}:{self.password}@{self.host}:{self.port}/{self.vhost}'
+
+            # url_port = (':' + str(url.port)) if url.port else ''
             adm_username = env.str('TEST_RABBIT_USERNAME')
             adm_password = env.str('TEST_RABBIT_PASSWORD')
-            self._client = Client(f"{self.host}{url_port}",
-                                  adm_username, adm_password)
+            # self.client = AdminAPI(f"{self.host}{url_port}", adm_username, adm_password)
+            self.client = AdminAPI(url.geturl(), auth=(adm_username, adm_password))
 
-        def __enter__(self):
-            self._client.create_vhost(self.vhost)
-            self._client.create_user(self.username, self.password)
-            self._client.set_vhost_permissions(self.vhost, self.username, '.*', '.*', '.*')
+        async def __aenter__(self):
+            await self.client.create_vhost(self.vhost)
+            await self.client.create_user(self.username, self.password)
+            # self.client.set_vhost_permissions(self.vhost, self.username, '.*', '.*', '.*')
+            await self.client.create_user_permission(self.username, self.vhost, '.*', '.*', '.*')
+
             return self
 
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            self._client.delete_user(self.vhost)
-            self._client.delete_vhost(self.vhost)
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            await self.client.delete_user(self.vhost)
+            await self.client.delete_vhost(self.vhost)
 
     return Rabbit

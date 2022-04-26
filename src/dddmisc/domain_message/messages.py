@@ -91,16 +91,16 @@ class BaseMessage(AbstractDomainMessage, metaclass=DomainMessageMeta):
 
     @classmethod
     @t.final
-    def loads(cls: t.Type[T], data: str) -> T:
-        return cls.__schema__.loads(data)
+    def loads(cls: t.Type[T], data: bytes) -> T:
+        return cls.__schema__.loads(data.decode())
 
     @t.final
     def dump(self) -> dict:
         return self.__schema__.dump(self)
 
     @t.final
-    def dumps(self) -> str:
-        return self.__schema__.dumps(self)
+    def dumps(self) -> bytes:
+        return self.__schema__.dumps(self).encode()
 
 
 class Event(BaseMessage):

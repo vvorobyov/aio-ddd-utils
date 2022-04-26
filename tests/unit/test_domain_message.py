@@ -2,9 +2,9 @@ from uuid import UUID
 
 import pytest
 
-from aioddd_utils.domain_message import Event, Command, get_message_class, fields as f
+from dddmisc.domain_message import Event, Command, get_message_class, fields as f
 
-from aioddd_utils.domain_message.messages import Object
+from dddmisc.domain_message.messages import Object
 
 
 class TestDomainMessages:
@@ -73,7 +73,7 @@ class TestDomainMessages:
                 str_field = f.String()
 
     def test_get_document_class(self):
-        from aioddd_utils.domain_message import messages
+        from dddmisc.domain_message import messages
         messages.MESSAGES_REGISTRY = {}
 
         class TestEvent(Event):

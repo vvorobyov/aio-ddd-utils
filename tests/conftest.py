@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 
@@ -11,7 +9,3 @@ def load_environment():
     Env.read_env()
     yield
     environ._data = backup
-
-
-
-
