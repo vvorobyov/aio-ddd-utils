@@ -32,7 +32,7 @@ class TestFields:
         (fields.Email(), 'test@example.com',
          'test@example.com'),
     ])
-    def test_success_serialize(self, klass: fields.Field, value, result):
+    def test_success_serialize(self, klass, value, result):
         assert klass.serialize(value) == result
 
 
@@ -87,3 +87,6 @@ class TestDomainCommand:
         assert obj.date_field == date(2022, 4, 24)
         assert obj.url_field == urlparse('http://example.com:80/test/path/')
         assert obj.email == 'test@example.com'
+
+    def test_description_methods(self):
+        class

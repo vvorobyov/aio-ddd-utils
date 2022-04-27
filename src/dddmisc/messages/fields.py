@@ -10,6 +10,22 @@ class Field:
     serialize_type: t.Type = None
     serialize_converter: t.Callable[[t.Any], t.Any] = None
 
+    def __init__(self):
+        self._field_name: t.Optional[str] = None
+
+    def __set_name__(self, owner, name):
+        self._field_name = name
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        if self._field_name.startswith('__') and self._field_name.endswith('__'):
+            field_name = self._field_name.strip('__')
+            value = instance.__data__[field_name]
+        else:
+            value = instance.__data__['data'][self._field_name]
+        return value
+
     def parse(self, value):
         return self.serialize(value)
 
@@ -45,6 +61,7 @@ class Decimal(Field):
         self.places = (
             decimal.Decimal((0, (1,), -places)) if places is not None else None
         )
+        super(Decimal, self).__init__()
 
     def serialize_converter(self, value):
         return decimal.Decimal(value).quantize(self.places, self.rounding)
