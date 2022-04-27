@@ -25,14 +25,12 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
     async def start(self):
 
         for domain in self.get_registered_domains():
+            events = self._events_configs.get_events_by_domain_name(domain)
+            commands = self._commands_configs.get_commands_by_domain_name(domain)
             if domain == self._domain:
-                connection = await aio_pika.connect_robust(self._url, loop=self.loop)
-                client = RabbitSelfDomainClient(connection, self.domain, )  # TODO обдумать конфиг для подключения к домену
+                client = RabbitSelfDomainClient(self._url, self.domain, '', events, commands)  # TODO обдумать конфиг для подключения к домену
             else:
-                url = self._url.with_path(domain)
-                connection = await aio_pika.connect_robust(url, loop=self.loop)
-                client = RabbitOtherDomainClient(connection, self.domain, domain) # TODO обдумать конфиг для подключения к домену
-            self._domain_connections[domain] = connection
+                client = RabbitOtherDomainClient(self._url, self.domain, domain, events, commands) # TODO обдумать конфиг для подключения к домену
             self._domain_clients[domain] = client
 
     async def stop(self, exception: Exception = None):
