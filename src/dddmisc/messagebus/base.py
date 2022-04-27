@@ -115,8 +115,8 @@ class BaseExternalMessageBus:
     def __init__(self, *, domain: str):
         self._domain = domain
         self._registered_domains = set()
-        self._events_handlers = EventConfigsCollection()
-        self._commands_handlers = CommandConfigsCollection()
+        self._events_configs = EventConfigsCollection()
+        self._commands_configs = CommandConfigsCollection()
 
     @property
     def domain(self) -> str:
@@ -124,15 +124,15 @@ class BaseExternalMessageBus:
 
     def consume_event(self, event: t.Type[Event], *handlers: EventHandlerType):
         self._registered_domains.add(event.__domain_name__)
-        self._events_handlers.add(event, *handlers)
+        self._events_configs.add(event, *handlers)
 
     def consume_command(self, command: t.Type[Command], handler: CommandHandlerType):
         self._registered_domains.add(command.__domain_name__)
-        self._commands_handlers.set(command, handler)
+        self._commands_configs.set(command, handler)
 
     def set_permission_for_command(self, command: t.Type[Command], *allowed_domains: str):
         self._registered_domains.add(command.__domain_name__)
-        self._commands_handlers.set_permissions(command, *allowed_domains)
+        self._commands_configs.set_permissions(command, *allowed_domains)
 
     def get_registered_domains(self) -> t.Iterable[str]:
         return tuple(self._registered_domains)
