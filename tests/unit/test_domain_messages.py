@@ -39,8 +39,8 @@ class TestFields:
 class TestDomainCommand:
     def test_load_command(self):
         test_data = {
-            'reference': 'b4c21ca6-ffe1-4df4-a350-ad221b3dc26d',
-            'timestamp': 1650819915.277321,
+            '__reference__': 'b4c21ca6-ffe1-4df4-a350-ad221b3dc26d',
+            '__timestamp__': 1650819915.277321,
             'data': {
                 'string_field': 'Abc',
                 'uuid_field': '00000000-0000-0000-0000-000000000000',
@@ -88,5 +88,3 @@ class TestDomainCommand:
         assert obj.url_field == urlparse('http://example.com:80/test/path/')
         assert obj.email == 'test@example.com'
 
-    def test_description_methods(self):
-        class
