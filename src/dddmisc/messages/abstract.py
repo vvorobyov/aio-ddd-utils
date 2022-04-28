@@ -3,6 +3,9 @@ import abc
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from types import MappingProxyType
+
+from . import fields
 
 
 class _Nothing:
@@ -10,71 +13,45 @@ class _Nothing:
 
 
 class AbstractField(abc.ABC):
-    nullable: bool = False
-    default: t.Any = _Nothing
-    factory: t.Callable = _Nothing
     value_type: t.Type
+
+    def __init__(self, *, default: t.Any = _Nothing, nullable: bool = False):
+        self.default = default
+        self.nullable = nullable
+
+    @abc.abstractmethod
+    def validate_value_type(self, value):
+        pass
 
 
 @dataclass(frozen=True)
 class Metadata:
+    fields: MappingProxyType[str, AbstractField]
     domain: str
-    fields: dict[str, AbstractField]
-    is_baseclass: bool = False
+    is_baseclass: bool
 
-    def validate_fields(self, **kwargs):
-        self._check_parameters(**kwargs)
-        self._validate_values_type(**kwargs)
+    def validate_initial_data(self, **kwargs):
         result = {}
         for name, field in self.fields.items():
+            self._check_parameter(name)
             value = kwargs.get(name, _Nothing)
-            if value is _Nothing:
-                if field.nullable:
-                    value = None
-                if field.default is not _Nothing:
-                    value = field.default
-                if field.factory is not _Nothing:
-                    value = field.factory()
-            result[name] = value
+            if not (name.startswith('__') and name.endswith('__')):
+                result[name] = field.validate_value_type(value)
         return result
 
-    def _check_parameters(self, **kwargs):
-        self_keys = set(self.fields.keys())
-        income_keys = set(kwargs.keys())
-        if unknown_keys := (income_keys - self_keys):
-            raise AttributeError(f'Unknown attributes {", ".join(unknown_keys)}')
-        required_keys = set(key for key, field in self.fields.items()
-                            if (not field.nullable
-                                and field.default is not _Nothing
-                                and field.factory is not _Nothing))
-        if not_set_keys := (required_keys - income_keys):
-            raise AttributeError(f'Not set required attributes {", ".join(not_set_keys)}')
-
-    def _validate_values_type(self, **kwargs):
-        for name, field in self.fields.items():
-            value = kwargs.get(name, _Nothing)
-            if value is not _Nothing:
-                if field.nullable:
-                    continue
-                elif field.default is not _Nothing:
-                    continue
-                elif field.factory is not _Nothing:
-                    continue
-                elif isinstance(value, field.value_type):
-                    continue
-                raise TypeError(f'"{name}" got is instance of {field.value_type}')
+    def _check_parameter(self, name: str):
+        if name not in self.fields:
+            raise AttributeError(f'Unknown attributes {name}')
 
 
 class AbstractDomainMessage(abc.ABC):
-    from . import fields
-    __reference__ = fields.Uuid()
-    __timestamp__ = fields.Integer()
+    __metadata__: Metadata
 
     def __init__(self, **kwargs):
+        if self.__metadata__.is_baseclass:
+            raise TypeError(f"cannot create instance of '{type(self).__name__}' class, because this is BaseClass")
         self.__data__ = {
-            '__reference__': uuid.uuid4(),
-            '__timestamp__': datetime.now(tz=timezone.utc).timestamp(),
-            'data': kwargs
+            'data': self.__metadata__.validate_initial_data(**kwargs)
         }
 
     @classmethod
@@ -112,4 +89,3 @@ class AbstractDomainMessage(abc.ABC):
 
         :return:
         """
-

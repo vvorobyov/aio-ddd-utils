@@ -1,62 +1,70 @@
 import decimal
-from typing import overload
+from typing import overload, Any
 from datetime import datetime, time, date
 from uuid import UUID
 
 from yarl import URL
 
+from dddmisc.messages.abstract import _Nothing
 
-class String:
+
+class Field:
+    @overload
+    def __init__(self, *, default: Any = _Nothing, nullable: bool = False):
+        ...
+
+
+class String(Field):
     @overload
     def __get__(self, instance, owner) -> str:
         ...
 
-class Uuid:
+class Uuid(Field):
     @overload
     def __get__(self, instance, owner) -> UUID:
         ...
 
-class Integer:
+class Integer(Field):
     @overload
     def __get__(self, instance, owner) -> int:
         ...
 
-class Float:
+class Float(Field):
     @overload
     def __get__(self, instance, owner) -> float:
         ...
 
-class Decimal:
+class Decimal(Field):
     @overload
     def __get__(self, instance, owner) -> decimal.Decimal:
         ...
 
-class Boolean:
+class Boolean(Field):
     @overload
     def __get__(self, instance, owner) -> bool:
         ...
 
-class Datetime:
+class Datetime(Field):
     @overload
     def __get__(self, instance, owner) -> datetime:
         ...
 
-class Time:
+class Time(Field):
     @overload
     def __get__(self, instance, owner) -> time:
         ...
 
-class Date:
+class Date(Field):
     @overload
     def __get__(self, instance, owner) -> date:
         ...
 
-class Url:
+class Url(Field):
     @overload
     def __get__(self, instance, owner) -> URL:
         ...
 
-class Email:
+class Email(Field):
     @overload
     def __get__(self, instance, owner) -> str:
         ...

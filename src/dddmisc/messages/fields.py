@@ -5,9 +5,11 @@ from urllib.parse import urlparse, ParseResult
 from uuid import UUID
 
 
-class Field:
+from dddmisc.messages.abstract import AbstractField, AbstractDomainMessage, _Nothing
 
-    serialize_type: t.Type = None
+
+class Field(AbstractField):
+    converter: t.Callable[[t.Any], t.Any] = None
     serialize_converter: t.Callable[[t.Any], t.Any] = None
 
     def __init__(self):
