@@ -1,4 +1,5 @@
 import decimal
+import json
 from dataclasses import dataclass, FrozenInstanceError
 from datetime import datetime, timezone, time, date, timedelta
 from decimal import Decimal
@@ -272,9 +273,14 @@ class TestDomainMessage:
             email_field = fields.Email()
 
             class Meta:
-                domain = 'test-domain-command'
+                domain = 'test-load-domain-message'
 
         obj = TestCommand.load(data=test_data)
+        obj2 = TestCommand.loads(data=json.dumps(test_data))
+
+        assert obj == obj2
+        assert hash(obj) == hash(obj2)
+
         assert obj.__reference__ == UUID('b4c21ca6-ffe1-4df4-a350-ad221b3dc26d')
         assert obj.__timestamp__ == 1650819915.277321
         assert obj.string_field == 'Abc'
@@ -289,4 +295,54 @@ class TestDomainMessage:
         assert obj.url_field == yarl.URL('http://example.com:80/test/path/')
         assert obj.email_field == 'test@example.com'
 
+    def test_dump(self):
+        class TestCommand(DomainMessage):
+            string_field = fields.String()
+            uuid_field = fields.Uuid()
+            integer_field = fields.Integer()
+            float_field = fields.Float()
+            decimal_field = fields.Decimal(2)
+            boolean_field = fields.Boolean()
+            datetime_field = fields.Datetime()
+            time_field = fields.Time()
+            date_field = fields.Date()
+            url_field = fields.Url()
+            email_field = fields.Email()
 
+            class Meta:
+                domain = 'test-dump-domain-message'
+
+        obj = TestCommand(
+            string_field='Abc',
+            uuid_field=UUID('00000000-0000-0000-0000-000000000000'),
+            integer_field=123,
+            float_field=456.789,
+            decimal_field=456.783,
+            boolean_field="false",
+            datetime_field=datetime.fromisoformat('2022-04-24T17:18:35.865385+00:00'),
+            time_field=time.fromisoformat('17:18:35.865385'),
+            date_field=date.fromisoformat('2022-04-24'),
+            url_field=yarl.URL('http://example.com:80/test/path/'),
+            email_field='test@example.com',
+        )
+
+        assert obj.dump() == {
+            '__reference__': str(obj.__reference__),
+            '__timestamp__': obj.__timestamp__,
+            'data': {
+                'string_field': 'Abc',
+                'uuid_field': '00000000-0000-0000-0000-000000000000',
+                'integer_field': 123,
+                'float_field': 456.789,
+                'decimal_field': "456.78",
+                'boolean_field': False,
+                'datetime_field': '2022-04-24T17:18:35.865385+00:00',
+                'time_field': '17:18:35.865385',
+                'date_field': '2022-04-24',
+                'url_field': 'http://example.com:80/test/path/',
+                'email_field': 'test@example.com',
+                # 'nested_field': None
+                # 'list_field': [1,2,3,4,5]
+                # 'dict_field': {'test': 'data'}
+            }
+        }

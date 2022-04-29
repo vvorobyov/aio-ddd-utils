@@ -37,7 +37,11 @@ class DomainMessage(metaclass=DomainMessageMeta):
 
     @t.final
     def dump(self) -> dict:
-        return super().dump()
+        result = {
+            '__reference__': str(self.__reference__),
+            '__timestamp__': self.__timestamp__,
+            'data': super().dump()}
+        return result
 
     @t.final
     def dumps(self) -> str:

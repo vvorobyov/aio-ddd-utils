@@ -19,6 +19,10 @@ class AbstractField(abc.ABC):
     def validate_value_type(self, value):
         pass
 
+    @abc.abstractmethod
+    def to_json(self, value):
+        pass
+
 
 @dataclass(frozen=True)
 class Metadata:
@@ -50,6 +54,16 @@ class AbstractDomainMessage(abc.ABC):
             'data': self.__metadata__.validate_initial_data(**kwargs)
         }
 
+    def __eq__(self, other):
+        return isinstance(other, AbstractDomainMessage) and self.__data__ == other.__data__
+
+    def __hash__(self):
+        return hash(repr(self.__data__))
+
+    def __repr__(self):
+        fields = ', '.join(f'{name}={getattr(self, name)!r}' for name in self.__metadata__.fields.keys())
+        return f'{self.__class__.__module__}.{self.__class__.__name__}({fields})  # domain="{self.__metadata__.domain}"'
+
     @classmethod
     def load(cls, data: dict):
         """
@@ -72,6 +86,11 @@ class AbstractDomainMessage(abc.ABC):
 
         :return:
         """
+        result = {}
+        for name, fields in self.__metadata__.fields.items():
+            if not(name.startswith('__') and name.endswith('__')):
+                result[name] = fields.to_json(getattr(self, name))
+        return result
 
 
 def __make_register_functions():

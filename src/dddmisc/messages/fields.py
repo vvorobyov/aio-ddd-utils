@@ -13,6 +13,7 @@ from dddmisc.messages.core import AbstractField, AbstractDomainMessage, Nothing
 
 
 class Field(AbstractField):
+
     converter: t.Callable[[t.Any], t.Any] = None
     serialize_converter: t.Callable[[t.Any], t.Any] = None
 
@@ -63,6 +64,9 @@ class Field(AbstractField):
             value=value,
         ))
 
+    def to_json(self, value):
+        return str(value)
+
 
 class String(Field):
     value_type = str
@@ -100,6 +104,9 @@ class Integer(Field):
             pass
         self.raise_type_error(value)
 
+    def to_json(self, value):
+        return value
+
 
 class Float(Field):
     value_type = float
@@ -109,10 +116,13 @@ class Float(Field):
             if isinstance(value, (float, int, decimal.Decimal, str)):
                 return float(value)
             elif isinstance(value, str):
-                return int(value)
+                return float(value)
         except ValueError:
             pass
         self.raise_type_error(value)
+
+    def to_json(self, value):
+        return value
 
 
 class Decimal(Field):
@@ -155,6 +165,9 @@ class Boolean(Field):
             pass
         self.raise_type_error(value)
 
+    def to_json(self, value):
+        return value
+
 
 class Datetime(Field):
     value_type = datetime
@@ -165,6 +178,9 @@ class Datetime(Field):
         if isinstance(value, datetime):
             return value.astimezone(timezone.utc)
         self.raise_type_error(value)
+
+    def to_json(self, value: datetime):
+        return value.isoformat()
 
 
 class Time(Field):
@@ -177,6 +193,9 @@ class Time(Field):
             return value
         self.raise_type_error(value)
 
+    def to_json(self, value: time):
+        return value.isoformat()
+
 
 class Date(Field):
     value_type = date
@@ -188,11 +207,12 @@ class Date(Field):
             return value
         self.raise_type_error(value)
 
+    def to_json(self, value: date):
+        return value.isoformat()
+
 
 class Url(Field):
     value_type = yarl.URL
-
-
 
     def converter(self, value):
         try:
