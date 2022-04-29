@@ -5,12 +5,12 @@ from uuid import UUID
 
 from yarl import URL
 
-from dddmisc.messages.abstract import _Nothing
+from dddmisc.messages.core import Nothing
 
 
 class Field:
     @overload
-    def __init__(self, *, default: Any = _Nothing, nullable: bool = False):
+    def __init__(self, *, default: Any = Nothing, nullable: bool = False):
         ...
 
 
@@ -38,7 +38,7 @@ class Decimal(Field):
     @overload
     def __init__(self, places: Union[int, None] = None,
                  rounding: Union[str, None] = None,
-                 *, default: Any = _Nothing, nullable: bool = False):
+                 *, default: Any = Nothing, nullable: bool = False):
         ...
     @overload
     def __get__(self, instance, owner) -> decimal.Decimal:

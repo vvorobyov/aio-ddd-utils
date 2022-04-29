@@ -1,8 +1,77 @@
 import abc
 import typing as t
+from dataclasses import dataclass
 from types import MappingProxyType
 
-from dddmisc.messages.abstract import AbstractDomainMessage, Metadata, AbstractField
+
+class Nothing:
+    pass
+
+
+class AbstractField(abc.ABC):
+    value_type: t.Type
+
+    def __init__(self, *, default: t.Any = Nothing, nullable: bool = False):
+        self.default = default
+        self.nullable = nullable
+
+    @abc.abstractmethod
+    def validate_value_type(self, value):
+        pass
+
+
+@dataclass(frozen=True)
+class Metadata:
+    fields: MappingProxyType[str, AbstractField]
+    domain: str
+    is_baseclass: bool
+
+    def validate_initial_data(self, **kwargs):
+        result = {}
+        for name, field in self.fields.items():
+            self._check_parameter(name)
+            value = kwargs.get(name, Nothing)
+            if not (name.startswith('__') and name.endswith('__')):
+                result[name] = field.validate_value_type(value)
+        return result
+
+    def _check_parameter(self, name: str):
+        if name not in self.fields:
+            raise AttributeError(f'Unknown attributes {name}')
+
+
+class AbstractDomainMessage(abc.ABC):
+    __metadata__: Metadata
+
+    def __init__(self, **kwargs):
+        if self.__metadata__.is_baseclass:
+            raise TypeError(f"cannot create instance of '{type(self).__name__}' class, because this is BaseClass")
+        self.__data__ = {
+            'data': self.__metadata__.validate_initial_data(**kwargs)
+        }
+
+    @classmethod
+    def load(cls, data: dict):
+        """
+        Method restore instance from data dict
+
+        :param data:
+        :return:
+        """
+        result = {}
+        for name, field in cls.__metadata__.fields.items():
+            if not (name.startswith('__') and name.endswith('__')):
+                value = data.get(name, Nothing)
+                result[name] = field.validate_value_type(value)
+        return cls(**result)
+
+    @t.final
+    def dump(self) -> dict:
+        """
+        Method for dump instance to json dict
+
+        :return:
+        """
 
 
 def __make_register_functions():
@@ -45,8 +114,8 @@ class DomainMessageMeta(abc.ABCMeta):
             domain_message_bases = [AbstractDomainMessage]
         new_attrs = {**attrs}
 
-        for key in ['Meta', 'load', 'loads', 'dump', 'dumps']:
-            new_attrs.pop(key, None)
+        # for key in ['Meta']:  # , 'load', 'loads', 'dump', 'dumps']:
+        #     new_attrs.pop(key, None)
 
         new_attrs['__metadata__'] = mcs._get_metadata(domain_message_bases[0], **attrs)
         klass = super(DomainMessageMeta, mcs).__new__(mcs, name, bases, new_attrs)

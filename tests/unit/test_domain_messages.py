@@ -10,9 +10,9 @@ import pytest
 import yarl
 
 from dddmisc.messages import fields
-from dddmisc.messages.abstract import AbstractDomainMessage, Metadata
-from dddmisc.messages.base import DomainMessageMeta, get_message_class
-from dddmisc.messages.domain_command import DomainCommand
+from dddmisc.messages.core import Metadata, AbstractDomainMessage, DomainMessageMeta
+from dddmisc.messages.core import get_message_class
+from dddmisc.messages.domain_command import DomainCommand, DomainMessage
 
 
 class TestFields:
@@ -85,7 +85,6 @@ class TestDomainMessageMeta:
 
         assert Test.__metadata__.domain == 'test-meta-class'
         assert Test.__metadata__.is_baseclass
-        assert hasattr(Test, 'Meta') is False
 
     def test_automatic_set_abstract_base_class(self):
         class Test(metaclass=DomainMessageMeta):
@@ -236,9 +235,8 @@ class TestDomainMessageMeta:
             get_message_class('test_class_by_name2.Test4')
 
 
-class TestDomainCommand:
-    @pytest.mark.skip
-    def test_load_command(self):
+class TestDomainMessage:
+    def test_load(self):
         test_data = {
             '__reference__': 'b4c21ca6-ffe1-4df4-a350-ad221b3dc26d',
             '__timestamp__': 1650819915.277321,
@@ -247,6 +245,7 @@ class TestDomainCommand:
                 'uuid_field': '00000000-0000-0000-0000-000000000000',
                 'integer_field': 123,
                 'float_field': 456.789,
+                'decimal_field': 456.783,
                 'boolean_field': False,
                 'datetime_field': '2022-04-24T17:18:35.865385+00:00',
                 'time_field': '17:18:35.865385',
@@ -259,12 +258,12 @@ class TestDomainCommand:
             }
         }
 
-        class TestCommand(DomainCommand):
+        class TestCommand(DomainMessage):
             string_field = fields.String()
             uuid_field = fields.Uuid()
             integer_field = fields.Integer()
             float_field = fields.Float()
-            decimal_field = fields.Decimal()
+            decimal_field = fields.Decimal(places=2)
             boolean_field = fields.Boolean()
             datetime_field = fields.Datetime()
             time_field = fields.Time()
@@ -276,15 +275,18 @@ class TestDomainCommand:
                 domain = 'test-domain-command'
 
         obj = TestCommand.load(data=test_data)
-        assert obj.reference == UUID('b4c21ca6-ffe1-4df4-a350-ad221b3dc26d')
-        assert obj.timestamp == datetime(2022, 4, 24, 17, 5, 15, 277321, tzinfo=timezone.utc)
+        assert obj.__reference__ == UUID('b4c21ca6-ffe1-4df4-a350-ad221b3dc26d')
+        assert obj.__timestamp__ == 1650819915.277321
         assert obj.string_field == 'Abc'
         assert obj.uuid_field == UUID('00000000-0000-0000-0000-000000000000')
         assert obj.integer_field == 123
         assert obj.float_field == 456.789
+        assert obj.decimal_field == Decimal('456.78')
         assert obj.boolean_field is False
         assert obj.datetime_field == datetime(2022, 4, 24, 17, 18, 35, 865385, tzinfo=timezone.utc)
         assert obj.time_field == time(17, 18, 35, 865385)
         assert obj.date_field == date(2022, 4, 24)
-        assert obj.url_field == urlparse('http://example.com:80/test/path/')
-        assert obj.email == 'test@example.com'
+        assert obj.url_field == yarl.URL('http://example.com:80/test/path/')
+        assert obj.email_field == 'test@example.com'
+
+

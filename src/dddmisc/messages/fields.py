@@ -9,7 +9,7 @@ from uuid import UUID
 
 import yarl
 
-from dddmisc.messages.abstract import AbstractField, AbstractDomainMessage, _Nothing
+from dddmisc.messages.core import AbstractField, AbstractDomainMessage, Nothing
 
 
 class Field(AbstractField):
@@ -47,11 +47,11 @@ class Field(AbstractField):
 
     def validate_value_type(self, value):
 
-        if self.default is not _Nothing and value is _Nothing:
+        if self.default is not Nothing and value is Nothing:
             value = self.default
-        elif self.nullable and value in [None, _Nothing]:
+        elif self.nullable and value in [None, Nothing]:
             return None
-        elif value is _Nothing:
+        elif value is Nothing:
             raise AttributeError(f'Not set required attributes {self._field_name}')
         return self.converter(value)
 
