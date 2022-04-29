@@ -1,5 +1,5 @@
 import decimal
-from typing import overload, Any
+from typing import overload, Any, Union
 from datetime import datetime, time, date
 from uuid import UUID
 
@@ -35,6 +35,11 @@ class Float(Field):
         ...
 
 class Decimal(Field):
+    @overload
+    def __init__(self, places: Union[int, None] = None,
+                 rounding: Union[str, None] = None,
+                 *, default: Any = _Nothing, nullable: bool = False):
+        ...
     @overload
     def __get__(self, instance, owner) -> decimal.Decimal:
         ...
