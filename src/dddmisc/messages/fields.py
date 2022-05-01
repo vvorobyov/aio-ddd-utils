@@ -6,7 +6,7 @@ from uuid import UUID
 
 import yarl
 
-from dddmisc.messages.core import DomainStructure, Field
+from dddmisc.messages.core import DomainStructure, Field, Nothing
 
 
 class String(Field):
@@ -253,6 +253,7 @@ class Email(Field):
 
 class List(Field):
     def __init__(self, instance: Field, *, allow_empty=False, **kwargs):
+        kwargs['default'] = Nothing
         super().__init__(**kwargs)
         self.instance: Field = instance
         self.allow_empty = allow_empty
@@ -279,6 +280,7 @@ class List(Field):
 
 class Structure(Field):
     def __init__(self, structure: t.Type[DomainStructure], **kwargs):
+        kwargs['default'] = Nothing
         super().__init__(**kwargs)
         self.structure = structure
 
