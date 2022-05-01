@@ -5,19 +5,18 @@ from uuid import UUID
 
 from yarl import URL
 
-from . import DomainStructure
-from .core import Nothing
+from .messages import DomainStructure, Nothing
 
-T = TypeVar('T')
+_T = TypeVar('_T')
 
 
-class Field(Generic[T]):
+class Field(Generic[_T]):
     @overload
-    def __init__(self, *, default: T = Nothing, nullable: bool = False):
+    def __init__(self, *, default: _T = Nothing, nullable: bool = False):
         ...
 
     @overload
-    def __get__(self, instance, owner) -> T:
+    def __get__(self, instance, owner) -> _T:
         ...
 
 

@@ -24,17 +24,17 @@ class Field(t.Generic[T]):
 
     def __set_name__(self, owner, name):
         self._field_name = name
-        if not issubclass(owner, AbstractDomainMessage):
+        if not issubclass(owner, BaseDomainMessage):
             raise TypeError('{field!r} can used only with subclasses of{type!r} (got {actual!r}).'.format(
                 field=self.__class__,
-                type=AbstractDomainMessage,
+                type=BaseDomainMessage,
                 actual=owner.__class__,
             ))
 
-    def __get__(self, instance: 'AbstractDomainMessage', owner):
+    def __get__(self, instance: 'BaseDomainMessage', owner):
         if instance is None:
             return self
-        if isinstance(instance, AbstractDomainMessage):
+        if isinstance(instance, BaseDomainMessage):
             return instance.get_attr(self._field_name)
         raise
 
@@ -81,7 +81,7 @@ class Metadata:
 _T = t.TypeVar('_T')
 
 
-class AbstractDomainMessage(abc.ABC):
+class BaseDomainMessage(abc.ABC):
     __metadata__: Metadata
 
     def __init__(self, **kwargs):
@@ -113,7 +113,7 @@ class AbstractDomainMessage(abc.ABC):
         return self._data[item]
 
     def __eq__(self, other):
-        return isinstance(other, AbstractDomainMessage) and self._data == other._data
+        return isinstance(other, BaseDomainMessage) and self._data == other._data
 
     def __hash__(self):
         return hash(repr(self._data))
@@ -151,9 +151,9 @@ class AbstractDomainMessage(abc.ABC):
 
 
 def __make_register_functions():
-    MESSAGE_REGISTER: t.Dict[t.Tuple[str, str], t.Type[AbstractDomainMessage]] = {}
+    MESSAGE_REGISTER: t.Dict[t.Tuple[str, str], t.Type[BaseDomainMessage]] = {}
 
-    def register(klass: t.Type[AbstractDomainMessage]):
+    def register(klass: t.Type[BaseDomainMessage]):
         if klass.__metadata__.is_baseclass:
             return
         domain = klass.__metadata__.domain
@@ -162,7 +162,7 @@ def __make_register_functions():
             raise RuntimeError(f'Multiple message class in domain "{klass.__metadata__.domain}" with name "{name}"')
         MESSAGE_REGISTER[(domain, name)] = klass
 
-    def get(key: t.Union[t.Tuple[str, str], str]) -> t.Type[AbstractDomainMessage]:
+    def get(key: t.Union[t.Tuple[str, str], str]) -> t.Type[BaseDomainMessage]:
         if isinstance(key, str):
             domain, name = key.split('.')
             key_ = (domain, name)
@@ -180,13 +180,13 @@ register_message_class, get_message_class = __make_register_functions()
 
 class DomainMessageMeta(abc.ABCMeta):
     def __new__(mcs, name: str, bases: t.Tuple[t.Type], attrs: dict):
-        domain_message_bases = [base for base in bases if issubclass(base, AbstractDomainMessage)]
+        domain_message_bases = [base for base in bases if issubclass(base, BaseDomainMessage)]
         base_dm_count = len(domain_message_bases)
         if base_dm_count > 1:
-            raise TypeError('Inherit from more one "AbstractDomainMessage" class')
+            raise TypeError('Inherit from more one "BaseDomainMessage" class')
         if base_dm_count == 0:
-            bases = (AbstractDomainMessage, *bases)
-            domain_message_bases = [AbstractDomainMessage]
+            bases = (BaseDomainMessage, *bases)
+            domain_message_bases = [BaseDomainMessage]
         new_attrs = {**attrs}
 
         if attrs['__module__'] != __name__:
@@ -199,7 +199,7 @@ class DomainMessageMeta(abc.ABCMeta):
         return klass
 
     @staticmethod
-    def _get_metadata(base: t.Optional[t.Type[AbstractDomainMessage]], **attrs) -> Metadata:
+    def _get_metadata(base: t.Optional[t.Type[BaseDomainMessage]], **attrs) -> Metadata:
         fields = {key: field for key, field in attrs.items() if isinstance(field, Field)}
         base_metadata: Metadata = getattr(base, '__metadata__', None)
 
@@ -213,7 +213,7 @@ class DomainMessageMeta(abc.ABCMeta):
                         domain=domain, is_baseclass=is_baseclass)
 
 
-class DomainMessage(AbstractDomainMessage, metaclass=DomainMessageMeta):
+class DomainMessage(BaseDomainMessage, metaclass=DomainMessageMeta):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -252,7 +252,7 @@ class DomainMessage(AbstractDomainMessage, metaclass=DomainMessageMeta):
         return super().dumps()
 
 
-class DomainStructure(AbstractDomainMessage, metaclass=DomainMessageMeta):
+class DomainStructure(BaseDomainMessage, metaclass=DomainMessageMeta):
     pass
 
 
@@ -266,21 +266,30 @@ class DomainEvent(DomainMessage):
 
 class DomainCommandResponse:
 
-    def __init__(self):
-        self._reference = uuid4()
+    def __init__(self, aggregator_ref: UUID, command_ref: UUID):
+        self._command_ref = command_ref
         self._timestamp = dt.datetime.now().timestamp()
+        self._aggregator_ref = aggregator_ref
 
     @property
     def __reference__(self) -> UUID:
-        return self._reference
+        """Идентификатор команды для которой предназначен ответ"""
+        return self._command_ref
+
+    @property
+    def reference(self) -> UUID:
+        """Идентификатор """
+        return self._aggregator_ref
 
     @property
     def __timestamp__(self) -> float:
         return self._timestamp
 
     @classmethod
-    def load(cls, data):
-        obj = cls()
+    def load(cls, data: dict):
+        aggr_ref = UUID(data.get('data', {}).get('reference', Nothing))
+        command_ref = UUID(data['__reference__'])
+        obj = cls(aggr_ref, command_ref)
         if ref_value := data.get('__reference__', None):
             obj._reference = UUID(ref_value)
         if ts_value := data.get('__timestamp__', None):
@@ -305,8 +314,10 @@ class DomainCommandResponse:
 
     def __eq__(self, other):
         return (isinstance(other, DomainCommandResponse)
-                and self._reference == other._reference
-                and self._timestamp == other._timestamp)
+                and self.__reference__ == other.__reference__
+                and self.__timestamp__ == other.__timestamp__
+                and self.__reference__ == other.__reference__)
 
     def __hash__(self):
-        return hash(f'{self.__class__.__name__}.{self._reference}.{self._timestamp}')
+        return hash(f'{self.__class__.__name__}.{self.reference}.'
+                    f'{self.__reference__}.{self.__timestamp__}')

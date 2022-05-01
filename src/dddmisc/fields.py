@@ -6,7 +6,7 @@ from uuid import UUID
 
 import yarl
 
-from dddmisc.messages.core import DomainStructure, Field, Nothing
+from dddmisc.messages import DomainStructure, Field, Nothing
 
 
 class String(Field):

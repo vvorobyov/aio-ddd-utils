@@ -8,10 +8,11 @@ from uuid import UUID
 import pytest
 import yarl
 
-from dddmisc.messages import fields, DomainMessage, DomainEvent, DomainCommand, DomainStructure
-from dddmisc.messages.core import (
-    Metadata, AbstractDomainMessage, DomainMessageMeta,
-    get_message_class,
+from dddmisc.messages import DomainStructure
+from dddmisc import fields
+from dddmisc.messages import (
+    get_message_class, DomainMessage,
+    Metadata, BaseDomainMessage, DomainMessageMeta,
 )
 
 
@@ -61,7 +62,7 @@ class TestFields:
         (fields.Email(), 'user@localhost', 'user@localhost'),
     ])
     def test_validate_value(self, field: fields.Field, value, result):
-        field.__set_name__(AbstractDomainMessage, 'test')
+        field.__set_name__(BaseDomainMessage, 'test')
         assert field.deserialize(value) == result
 
     def test_use_field_with_not_domain_message_class(self):
@@ -78,7 +79,7 @@ class TestFields:
 class TestDomainMessageMeta:
 
     def test_set_default_metadata(self):
-        class Test(AbstractDomainMessage, metaclass=DomainMessageMeta):
+        class Test(BaseDomainMessage, metaclass=DomainMessageMeta):
             pass
 
         assert hasattr(Test, '__metadata__')
@@ -88,7 +89,7 @@ class TestDomainMessageMeta:
         assert Test.__metadata__.fields == {}
 
     def test_set_metadata_from_meta(self):
-        class Test(AbstractDomainMessage, metaclass=DomainMessageMeta):
+        class Test(BaseDomainMessage, metaclass=DomainMessageMeta):
             class Meta:
                 is_baseclass = True
                 domain = 'test-meta-class'
@@ -100,12 +101,12 @@ class TestDomainMessageMeta:
         class Test(metaclass=DomainMessageMeta):
             pass
 
-        assert issubclass(Test, AbstractDomainMessage)
+        assert issubclass(Test, BaseDomainMessage)
         assert Test.__metadata__.domain is None
         assert Test.__metadata__.is_baseclass is True
 
     def test_inherit_metadata(self):
-        class Test(AbstractDomainMessage, metaclass=DomainMessageMeta):
+        class Test(BaseDomainMessage, metaclass=DomainMessageMeta):
             class Meta:
                 is_baseclass = True
                 domain = 'test-meta-class'
@@ -123,7 +124,7 @@ class TestDomainMessageMeta:
         assert Test3.__metadata__.is_baseclass
 
     def test_set_fields(self):
-        class Test(AbstractDomainMessage, metaclass=DomainMessageMeta):
+        class Test(BaseDomainMessage, metaclass=DomainMessageMeta):
             __reference__ = fields.Uuid()
             __timestamp__ = fields.Datetime()
             other_str_fields = fields.String()
@@ -138,7 +139,7 @@ class TestDomainMessageMeta:
         }
 
     def test_inherit_fields(self):
-        class Test(AbstractDomainMessage, metaclass=DomainMessageMeta):
+        class Test(BaseDomainMessage, metaclass=DomainMessageMeta):
             __reference__ = fields.Uuid()
             __timestamp__ = fields.Datetime()
             other_str_fields = fields.String()
@@ -153,7 +154,7 @@ class TestDomainMessageMeta:
         }
 
     def test_replace_inherit_fields(self):
-        class Test(AbstractDomainMessage, metaclass=DomainMessageMeta):
+        class Test(BaseDomainMessage, metaclass=DomainMessageMeta):
             __reference__ = fields.Uuid()
             __timestamp__ = fields.Datetime()
             other_str_fields = fields.String()
@@ -169,7 +170,7 @@ class TestDomainMessageMeta:
 
     def test_double_registered_class(self):
         def register_class():
-            class Test(AbstractDomainMessage, metaclass=DomainMessageMeta):
+            class Test(BaseDomainMessage, metaclass=DomainMessageMeta):
                 __reference__ = fields.Uuid()
                 __timestamp__ = fields.Datetime()
                 other_str_fields = fields.String()
