@@ -1,77 +1,18 @@
 import decimal
 import re
-import typing
 import typing as t
-from dataclasses import FrozenInstanceError
 from datetime import datetime, timezone, time, date
-from urllib.parse import urlparse, ParseResult
 from uuid import UUID
 
 import yarl
 
-from dddmisc.messages.core import AbstractField, AbstractDomainMessage, Nothing
-
-
-class Field(AbstractField):
-
-    converter: t.Callable[[t.Any], t.Any] = None
-    serialize_converter: t.Callable[[t.Any], t.Any] = None
-
-    def __init__(self, **kwargs):
-        self._field_name: t.Optional[str] = None
-        super().__init__(**kwargs)
-
-    def __set_name__(self, owner, name):
-        self._field_name = name
-
-    def __get__(self, instance: AbstractDomainMessage, owner):
-        if instance is None:
-            return self
-        if self._field_name.startswith('__') and self._field_name.endswith('__'):
-            value = instance.__data__[self._field_name]
-        else:
-            value = instance.__data__['data'][self._field_name]
-        return value
-
-    def __set__(self, instance, value):
-        if instance is not None:
-            raise FrozenInstanceError(f"cannot assign to field '{self._field_name}'")
-
-    def parse(self, value):
-        return self.serialize(value)
-
-    def serialize(self, value):
-        if self.serialize_converter is not None:
-            return self.serialize_converter(value)
-        else:
-            return self.value_type(value)
-
-    def validate_value_type(self, value):
-
-        if self.default is not Nothing and value is Nothing:
-            value = self.default
-        elif self.nullable and value in [None, Nothing]:
-            return None
-        elif value is Nothing:
-            raise AttributeError(f'Not set required attributes {self._field_name}')
-        return self.converter(value)
-
-    def raise_type_error(self, value):
-        raise TypeError("'{name}' must be {type!r} (got {value!r} that is a {actual!r}).".format(
-            name=self._field_name,
-            type=self.value_type,
-            actual=value.__class__,
-            value=value,
-        ))
-
-    def to_json(self, value):
-        return str(value)
+from dddmisc.messages.core import DomainStructure, Field
 
 
 class String(Field):
     value_type = str
 
-    def converter(self, value):
+    def _deserialize(self, value):
         if isinstance(value, str):
             return value
         self.raise_type_error(value)
@@ -80,7 +21,7 @@ class String(Field):
 class Uuid(Field):
     value_type = UUID
 
-    def converter(self, value):
+    def _deserialize(self, value):
         try:
             if isinstance(value, UUID):
                 return value
@@ -90,11 +31,14 @@ class Uuid(Field):
             pass
         self.raise_type_error(value)
 
+    def _serialize(self, value):
+        return str(value)
+
 
 class Integer(Field):
     value_type = int
 
-    def converter(self, value):
+    def _deserialize(self, value):
         try:
             if isinstance(value, int):
                 return value
@@ -104,14 +48,11 @@ class Integer(Field):
             pass
         self.raise_type_error(value)
 
-    def to_json(self, value):
-        return value
-
 
 class Float(Field):
     value_type = float
 
-    def converter(self, value):
+    def _deserialize(self, value):
         try:
             if isinstance(value, (float, int, decimal.Decimal, str)):
                 return float(value)
@@ -120,9 +61,6 @@ class Float(Field):
         except ValueError:
             pass
         self.raise_type_error(value)
-
-    def to_json(self, value):
-        return value
 
 
 class Decimal(Field):
@@ -136,7 +74,7 @@ class Decimal(Field):
         )
         super().__init__(**kwargs)
 
-    def converter(self, value):
+    def _deserialize(self, value):
         try:
             value = decimal.Decimal(value)
             if self.places is not None:
@@ -146,80 +84,128 @@ class Decimal(Field):
             pass
         self.raise_type_error(value)
 
+    def _serialize(self, value):
+        return str(value)
+
 
 class Boolean(Field):
     value_type = bool
+    #: Default truthy values.
+    truthy = {
+        "t",
+        "T",
+        "true",
+        "True",
+        "TRUE",
+        "on",
+        "On",
+        "ON",
+        "y",
+        "Y",
+        "yes",
+        "Yes",
+        "YES",
+        "1",
+        1,
+        True,
+    }
+    #: Default falsy values.
+    falsy = {
+        "f",
+        "F",
+        "false",
+        "False",
+        "FALSE",
+        "off",
+        "Off",
+        "OFF",
+        "n",
+        "N",
+        "no",
+        "No",
+        "NO",
+        "0",
+        0,
+        0.0,
+        False,
+    }
 
-    def converter(self, value):
+    def __init__(self, *, truthy: t.Optional[set] = None, falsy: t.Optional[set] = None, **kwargs):
+        super().__init__(**kwargs)
+
+        if truthy is not None:
+            self.truthy = set(truthy)
+        if falsy is not None:
+            self.falsy = set(falsy)
+
+    def _deserialize(self, value):
         if isinstance(value, str):
             value = value.lower()
-        truthy = {True, "true", "t", "yes", "y", "on", "1", 1}
-        falsy = {False, "false", "f", "no", "n", "off", "0", 0}
         try:
-            if value in truthy:
+            if value in self.truthy:
                 return True
-            if value in falsy:
+            if value in self.falsy:
                 return False
         except TypeError:
             # Raised when "val" is not hashable (e.g., lists)
             pass
         self.raise_type_error(value)
 
-    def to_json(self, value):
-        return value
-
 
 class Datetime(Field):
     value_type = datetime
 
-    def converter(self, value):
+    def _deserialize(self, value):
         if isinstance(value, str):
             value = datetime.fromisoformat(value)
         if isinstance(value, datetime):
             return value.astimezone(timezone.utc)
         self.raise_type_error(value)
 
-    def to_json(self, value: datetime):
+    def _serialize(self, value):
         return value.isoformat()
 
 
 class Time(Field):
     value_type = time
 
-    def converter(self, value):
+    def _deserialize(self, value):
         if isinstance(value, str):
             return time.fromisoformat(value)
         elif isinstance(value, time):
             return value
         self.raise_type_error(value)
 
-    def to_json(self, value: time):
+    def _serialize(self, value: time):
         return value.isoformat()
 
 
 class Date(Field):
     value_type = date
 
-    def converter(self, value):
+    def _deserialize(self, value):
         if isinstance(value, str):
             return date.fromisoformat(value)
         elif isinstance(value, date):
             return value
         self.raise_type_error(value)
 
-    def to_json(self, value: date):
+    def _serialize(self, value: date):
         return value.isoformat()
 
 
 class Url(Field):
     value_type = yarl.URL
 
-    def converter(self, value):
+    def _deserialize(self, value):
         try:
             return yarl.URL(value)
         except TypeError:
             pass
         self.raise_type_error(value)
+
+    def _serialize(self, value):
+        return str(value)
 
 
 class Email(Field):
@@ -244,7 +230,7 @@ class Email(Field):
 
     DOMAIN_WHITELIST = ("localhost",)
 
-    def converter(self, value):
+    def _deserialize(self, value):
         if isinstance(value, str):
             if not value or "@" not in value:
                 raise self.raise_type_error(value)
@@ -263,3 +249,44 @@ class Email(Field):
                     self.raise_type_error(value)
             return str(value)
         self.raise_type_error(value)
+
+
+class List(Field):
+    def __init__(self, instance: Field, *, allow_empty=False, **kwargs):
+        super().__init__(**kwargs)
+        self.instance: Field = instance
+        self.allow_empty = allow_empty
+
+    def __get__(self, instance, owner):
+        value = super().__get__(instance, owner)
+        if value is not None:
+            return tuple(value)
+
+    def _deserialize(self, value):
+        result = []
+        for item in value:
+            result.append(self.instance.deserialize(item))
+        if not len(result) and not self.allow_empty:
+            self.raise_type_error(value)
+        return tuple(result)
+
+    def _serialize(self, value):
+        result = []
+        for item in value:
+            result.append(self.instance.serialize(item))
+        return result
+
+
+class Structure(Field):
+    def __init__(self, structure: t.Type[DomainStructure], **kwargs):
+        super().__init__(**kwargs)
+        self.structure = structure
+
+    def _deserialize(self, value):
+        if isinstance(value, DomainStructure):
+            return value
+        else:
+            return self.structure.load(value)
+
+    def _serialize(self, value: DomainStructure):
+        return value.dump()

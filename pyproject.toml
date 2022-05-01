@@ -8,6 +8,7 @@ authors = ["Vladislav Vorobyov <vladislav.vorobyov@gmail.com>"]
 python = "^3.9"
 attrs = "^21.4.0"
 marshmallow = "^3.15.0"
+yarl = "^1.7.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.1"

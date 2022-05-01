@@ -1,47 +1,84 @@
 import abc
+import datetime as dt
+import json
 import typing as t
-from dataclasses import dataclass
+from dataclasses import dataclass, FrozenInstanceError
 from types import MappingProxyType
+from uuid import uuid4, UUID
 
 
 class Nothing:
     pass
 
 
-class AbstractField(abc.ABC):
+T = t.TypeVar('T')
+
+
+class Field(t.Generic[T]):
     value_type: t.Type
 
-    def __init__(self, *, default: t.Any = Nothing, nullable: bool = False):
+    def __init__(self, *, default: T = Nothing, nullable: bool = False):
         self.default = default
         self.nullable = nullable
+        self._field_name: t.Optional[str] = None
 
-    @abc.abstractmethod
-    def validate_value_type(self, value):
-        pass
+    def __set_name__(self, owner, name):
+        self._field_name = name
+        if not issubclass(owner, AbstractDomainMessage):
+            raise TypeError('{field!r} can used only with subclasses of{type!r} (got {actual!r}).'.format(
+                field=self.__class__,
+                type=AbstractDomainMessage,
+                actual=owner.__class__,
+            ))
 
-    @abc.abstractmethod
-    def to_json(self, value):
-        pass
+    def __get__(self, instance: 'AbstractDomainMessage', owner):
+        if instance is None:
+            return self
+        if isinstance(instance, AbstractDomainMessage):
+            return instance.get_attr(self._field_name)
+        raise
+
+    def __set__(self, instance, value):
+        if instance is not None:
+            raise FrozenInstanceError("cannot assign to field '{name}'".format(
+                name=self._field_name
+            ))
+
+    def deserialize(self, value) -> T:
+        if value is Nothing and self.default:
+            value = self.default
+        if value is Nothing and self.nullable:
+            return None
+        if value is Nothing:
+            raise AttributeError('Not set required attribute "{name}"'.format(name=self._field_name))
+        return self._deserialize(value)
+
+    def _deserialize(self, value):
+        return value
+
+    def serialize(self, value: T):
+        return self._serialize(value)
+
+    def _serialize(self, value: T):
+        return value
+
+    def raise_type_error(self, value):
+        raise TypeError("'{name}' must be {type!r} (got {value!r} that is a {actual!r}).".format(
+            name=self._field_name,
+            type=self.value_type,
+            actual=value.__class__,
+            value=value,
+        ))
 
 
 @dataclass(frozen=True)
 class Metadata:
-    fields: MappingProxyType[str, AbstractField]
+    fields: MappingProxyType[str, Field]
     domain: str
     is_baseclass: bool
 
-    def validate_initial_data(self, **kwargs):
-        result = {}
-        for name, field in self.fields.items():
-            self._check_parameter(name)
-            value = kwargs.get(name, Nothing)
-            if not (name.startswith('__') and name.endswith('__')):
-                result[name] = field.validate_value_type(value)
-        return result
 
-    def _check_parameter(self, name: str):
-        if name not in self.fields:
-            raise AttributeError(f'Unknown attributes {name}')
+_T = t.TypeVar('_T')
 
 
 class AbstractDomainMessage(abc.ABC):
@@ -49,52 +86,71 @@ class AbstractDomainMessage(abc.ABC):
 
     def __init__(self, **kwargs):
         if self.__metadata__.is_baseclass:
-            raise TypeError(f"cannot create instance of '{type(self).__name__}' class, because this is BaseClass")
-        self.__data__ = {
-            'data': self.__metadata__.validate_initial_data(**kwargs)
-        }
+            if not isinstance(self, DomainStructure):
+                raise TypeError(f"cannot create instance of '{type(self).__name__}' class, because this is BaseClass")
+        self._data = self._deserialize(kwargs)
+
+    def _deserialize(self, obj: dict):
+        result = {}
+        errors = {}
+        for key, field in self.__metadata__.fields.items():
+            try:
+                result[key] = field.deserialize(obj.get(key, Nothing))
+            except BaseException as err:
+                errors[key] = err
+        if not errors:
+            return result
+
+        raise list(errors.values())[0]  # TODO реализовать массовую обработку ошибок
+
+    def _serialize(self):
+        result = {}
+        for key, field in self.__metadata__.fields.items():
+            result[key] = field.serialize(self._data.get(key))
+        return result
+
+    def get_attr(self, item: str):
+        return self._data[item]
 
     def __eq__(self, other):
-        return isinstance(other, AbstractDomainMessage) and self.__data__ == other.__data__
+        return isinstance(other, AbstractDomainMessage) and self._data == other._data
 
     def __hash__(self):
-        return hash(repr(self.__data__))
+        return hash(repr(self._data))
 
     def __repr__(self):
         fields = ', '.join(f'{name}={getattr(self, name)!r}' for name in self.__metadata__.fields.keys())
         return f'{self.__class__.__module__}.{self.__class__.__name__}({fields})  # domain="{self.__metadata__.domain}"'
 
     @classmethod
-    def load(cls, data: dict):
+    def load(cls: t.Type[_T], data: dict) -> _T:
         """
         Method restore instance from data dict
 
         :param data:
         :return:
         """
-        result = {}
-        for name, field in cls.__metadata__.fields.items():
-            if not (name.startswith('__') and name.endswith('__')):
-                value = data.get(name, Nothing)
-                result[name] = field.validate_value_type(value)
-        return cls(**result)
+        return cls(**data)
 
-    @t.final
+    @classmethod
+    def loads(cls: t.Type[_T], data: str) -> _T:
+        dict_data = json.loads(data)
+        return cls.load(dict_data)
+
     def dump(self) -> dict:
         """
         Method for dump instance to json dict
 
         :return:
         """
-        result = {}
-        for name, fields in self.__metadata__.fields.items():
-            if not(name.startswith('__') and name.endswith('__')):
-                result[name] = fields.to_json(getattr(self, name))
-        return result
+        return self._serialize()
+
+    def dumps(self) -> str:
+        data = self.dump()
+        return json.dumps(data)
 
 
 def __make_register_functions():
-
     MESSAGE_REGISTER: t.Dict[t.Tuple[str, str], t.Type[AbstractDomainMessage]] = {}
 
     def register(klass: t.Type[AbstractDomainMessage]):
@@ -133,8 +189,9 @@ class DomainMessageMeta(abc.ABCMeta):
             domain_message_bases = [AbstractDomainMessage]
         new_attrs = {**attrs}
 
-        # for key in ['Meta']:  # , 'load', 'loads', 'dump', 'dumps']:
-        #     new_attrs.pop(key, None)
+        if attrs['__module__'] != __name__:
+            for key in ['load', 'loads', 'dump', 'dumps']:
+                new_attrs.pop(key, None)
 
         new_attrs['__metadata__'] = mcs._get_metadata(domain_message_bases[0], **attrs)
         klass = super(DomainMessageMeta, mcs).__new__(mcs, name, bases, new_attrs)
@@ -143,10 +200,11 @@ class DomainMessageMeta(abc.ABCMeta):
 
     @staticmethod
     def _get_metadata(base: t.Optional[t.Type[AbstractDomainMessage]], **attrs) -> Metadata:
-        fields = {key: field for key, field in attrs.items() if isinstance(field, AbstractField)}
+        fields = {key: field for key, field in attrs.items() if isinstance(field, Field)}
+        base_metadata: Metadata = getattr(base, '__metadata__', None)
+
         meta_info = attrs.get('Meta', None)
         is_baseclass = getattr(meta_info, 'is_baseclass', False)
-        base_metadata: Metadata = getattr(base, '__metadata__', None)
         domain = getattr(base_metadata, 'domain', None) or getattr(meta_info, 'domain', None)
         if domain is None:
             is_baseclass = True
@@ -154,3 +212,101 @@ class DomainMessageMeta(abc.ABCMeta):
         return Metadata(fields=MappingProxyType({**base_fields, **fields}),
                         domain=domain, is_baseclass=is_baseclass)
 
+
+class DomainMessage(AbstractDomainMessage, metaclass=DomainMessageMeta):
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._reference = uuid4()
+        self._timestamp = dt.datetime.now().timestamp()
+
+    @property
+    def __reference__(self) -> UUID:
+        return self._reference
+
+    @property
+    def __timestamp__(self) -> float:
+        return self._timestamp
+
+    @classmethod
+    def load(cls, data):
+        obj = super().load(data.get('data', {}))
+        if ref_value := data.get('__reference__', None):
+            obj._reference = UUID(ref_value)
+        if ts_value := data.get('__timestamp__', None):
+            obj._timestamp = ts_value
+        return obj
+
+    @classmethod
+    def loads(cls, data):
+        return super().loads(data)
+
+    def dump(self):
+        result = {
+            '__reference__': str(self.__reference__),
+            '__timestamp__': self.__timestamp__,
+            'data': super().dump()}
+        return result
+
+    def dumps(self):
+        return super().dumps()
+
+
+class DomainStructure(AbstractDomainMessage, metaclass=DomainMessageMeta):
+    pass
+
+
+class DomainCommand(DomainMessage):
+    pass
+
+
+class DomainEvent(DomainMessage):
+    pass
+
+
+class DomainCommandResponse:
+
+    def __init__(self):
+        self._reference = uuid4()
+        self._timestamp = dt.datetime.now().timestamp()
+
+    @property
+    def __reference__(self) -> UUID:
+        return self._reference
+
+    @property
+    def __timestamp__(self) -> float:
+        return self._timestamp
+
+    @classmethod
+    def load(cls, data):
+        obj = cls()
+        if ref_value := data.get('__reference__', None):
+            obj._reference = UUID(ref_value)
+        if ts_value := data.get('__timestamp__', None):
+            obj._timestamp = ts_value
+        return obj
+
+    @classmethod
+    def loads(cls, data):
+        dict_data = json.loads(data)
+        return cls.load(dict_data)
+
+    def dump(self):
+        result = {
+            '__reference__': str(self.__reference__),
+            '__timestamp__': self.__timestamp__,
+        }
+        return result
+
+    def dumps(self):
+        data = self.dump()
+        return json.dumps(data)
+
+    def __eq__(self, other):
+        return (isinstance(other, DomainCommandResponse)
+                and self._reference == other._reference
+                and self._timestamp == other._timestamp)
+
+    def __hash__(self):
+        return hash(f'{self.__class__.__name__}.{self._reference}.{self._timestamp}')
