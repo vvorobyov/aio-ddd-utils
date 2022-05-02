@@ -221,6 +221,10 @@ class DomainMessage(BaseDomainMessage, metaclass=DomainMessageMeta):
         self._timestamp = dt.datetime.now().timestamp()
 
     @property
+    def __domain__(self) -> str:
+        return self.__metadata__.domain
+
+    @property
     def __reference__(self) -> UUID:
         return self._reference
 
