@@ -5,7 +5,8 @@ from uuid import UUID
 
 from yarl import URL
 
-from .messages import DomainStructure, Nothing
+from .structure import DomainStructure
+from .core import Nothing
 
 _T = TypeVar('_T')
 

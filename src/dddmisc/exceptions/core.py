@@ -88,7 +88,7 @@ class BaseDomainException(BaseException):
 
 
 class DomainExceptionMeta(type):
-    EXCEPTIONS_COLLECTION: dict[t.Tuple[str, str], t.Type[BaseDomainException]] = {}
+    __EXCEPTIONS_COLLECTION: dict[t.Tuple[str, str], t.Type[BaseDomainException]] = {}
 
     def __new__(mcs, name: str, bases: t.Tuple[t.Type], attrs: dict) -> BaseDomainException:
         module = attrs.get('__module__')
@@ -154,12 +154,12 @@ class DomainExceptionMeta(type):
             return
         domain = klass.__metadata__.domain
         code = klass.__metadata__.code
-        if (domain, code) is mcs.EXCEPTIONS_COLLECTION:
+        if (domain, code) is mcs.__EXCEPTIONS_COLLECTION:
             raise RuntimeError(
                 f'Multiple register error class in domain "{klass.__metadata__.domain}" with code "{code}"')
-        mcs.EXCEPTIONS_COLLECTION[(domain, code)] = klass
+        mcs.__EXCEPTIONS_COLLECTION[(domain, code)] = klass
 
     @classmethod
     def get_exception_collection(mcs) -> MappingProxyType[t.Tuple[str, str], t.Type[BaseDomainException]]:
-        return MappingProxyType(mcs.EXCEPTIONS_COLLECTION)
+        return MappingProxyType(mcs.__EXCEPTIONS_COLLECTION)
 

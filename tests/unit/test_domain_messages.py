@@ -9,11 +9,11 @@ import pytest
 import yarl
 
 from dddmisc.messages import DomainStructure
-from dddmisc import fields
-from dddmisc.messages import (
+from dddmisc.messages import (fields,
     get_message_class, DomainMessage,
-    Metadata, BaseDomainMessage, DomainMessageMeta,
+
 )
+from dddmisc.messages.core import Metadata, BaseDomainMessage, DomainMessageMeta
 
 
 class TestFields:
@@ -206,7 +206,7 @@ class TestDomainMessageMeta:
         class Test(metaclass=DomainMessageMeta):
             pass
 
-        with pytest.raises(TypeError, match="cannot create instance of 'Test' class, because this is BaseClass"):
+        with pytest.raises(TypeError, match="cannot create instance of 'Test' class, because this is baseclass"):
             Test()
 
     def test_class_by_name(self):
@@ -239,7 +239,7 @@ class TestDomainMessageMeta:
         assert get_message_class('test_class_by_name.Test2') is Test2
         assert get_message_class('test_class_by_name2.Test3') is Test3
 
-        with pytest.raises(ValueError, match="Message class by 'test_class_by_name2.Test4' not found"):
+        with pytest.raises(RuntimeError, match="Message class by 'test_class_by_name2.Test4' not found"):
             get_message_class('test_class_by_name2.Test4')
 
 

@@ -1,12 +1,75 @@
 import decimal
 import re
 import typing as t
+from dataclasses import FrozenInstanceError
 from datetime import datetime, timezone, time, date
 from uuid import UUID
 
 import yarl
 
-from dddmisc.messages import DomainStructure, Field, Nothing
+from .core import AbstractField, Nothing, BaseDomainMessage
+from .structure import DomainStructure
+
+
+T = t.TypeVar('T')
+
+
+class Field(AbstractField, t.Generic[T]):
+
+    value_type: t.Type
+
+    def __init__(self, *, default: T = Nothing, nullable: bool = False):
+        self.default = default
+        self.nullable = nullable
+        self._field_name: t.Optional[str] = None
+
+    def __set_name__(self, owner, name):
+        self._field_name = name
+        if not issubclass(owner, BaseDomainMessage):
+            raise TypeError('{field!r} can used only with subclasses of{type!r} (got {actual!r}).'.format(
+                field=self.__class__,
+                type=BaseDomainMessage,
+                actual=owner.__class__,
+            ))
+
+    def __get__(self, instance: 'BaseDomainMessage', owner):
+        if instance is None:
+            return self
+        if isinstance(instance, BaseDomainMessage):
+            return instance.get_attr(self._field_name)
+        raise
+
+    def __set__(self, instance, value):
+        if instance is not None:
+            raise FrozenInstanceError("cannot assign to field '{name}'".format(
+                name=self._field_name
+            ))
+
+    def deserialize(self, value) -> T:
+        if value is Nothing and self.default:
+            value = self.default
+        if value is Nothing and self.nullable:
+            return None
+        if value is Nothing:
+            raise AttributeError('Not set required attribute "{name}"'.format(name=self._field_name))
+        return self._deserialize(value)
+
+    def _deserialize(self, value):
+        return value
+
+    def serialize(self, value: T):
+        return self._serialize(value)
+
+    def _serialize(self, value: T):
+        return value
+
+    def raise_type_error(self, value):
+        raise TypeError("'{name}' must be {type!r} (got {value!r} that is a {actual!r}).".format(
+            name=self._field_name,
+            type=self.value_type,
+            actual=value.__class__,
+            value=value,
+        ))
 
 
 class String(Field):
@@ -260,7 +323,7 @@ class List(Field):
 
     def __get__(self, instance, owner):
         value = super().__get__(instance, owner)
-        if value is not None:
+        if value is not None and value is not self:
             return tuple(value)
 
     def _deserialize(self, value):
