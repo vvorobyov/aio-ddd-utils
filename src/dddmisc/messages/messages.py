@@ -23,9 +23,9 @@ class DomainMessage(BaseDomainMessage, metaclass=DomainMessageMeta):
         else:
             return super().get_attr(item)
 
-    @property
-    def __domain__(self) -> str:
-        return self.__metadata__.domain
+    @classmethod
+    def get_domain_name(cls) -> str:
+        return cls.__metadata__.domain
 
     @classmethod
     def load(cls, data):

@@ -158,4 +158,3 @@ class DomainMessageMeta(abc.ABCMeta):
         return MappingProxyType(mcs.__MESSAGE_COLLECTION)
 
 
-

@@ -3,9 +3,11 @@ import pytest
 
 @pytest.fixture
 def load_environment():
-    from os import environ
+    import pathlib
+    import os
     from environ import Env
-    backup = environ._data.copy()
-    Env.read_env()
+    backup = os.environ._data.copy()
+    envfile = os.path.dirname(__file__) + '/.env'
+    Env.read_env(str(envfile))
     yield
-    environ._data = backup
+    os.environ._data = backup

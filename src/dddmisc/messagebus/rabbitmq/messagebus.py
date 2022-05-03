@@ -4,7 +4,7 @@ import typing as t
 import aio_pika
 from aio_pika.abc import AbstractRobustConnection, AbstractConnection
 
-from dddmisc.domain_message.messages import BaseMessage
+from dddmisc.messages.messages import DomainMessage
 from dddmisc.messagebus.abstract import AbstractAsyncExternalMessageBus, AbstractSyncExternalMessageBus
 from dddmisc.messagebus.rabbitmq.abstract import AbstractRabbitDomainClient
 from dddmisc.messagebus.rabbitmq.base import BaseRabbitMessageBus
@@ -19,8 +19,8 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
         self._domain_clients: t.Dict[str, AbstractRabbitDomainClient] = {}
         super(AsyncRabbitMessageBus, self).__init__(*args, **kwargs)
 
-    async def handle(self, message: BaseMessage):
-        return await self._domain_clients[message.__domain_name__].handle(message)
+    async def handle(self, message: DomainMessage):
+        return await self._domain_clients[message.get_domain_name()].handle(message)
 
     async def start(self):
 
@@ -41,7 +41,7 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
 
 
 class SyncRabbitMessageBus(BaseRabbitMessageBus, AbstractSyncExternalMessageBus):
-    def handle(self, message: BaseMessage):
+    def handle(self, message: DomainMessage):
         pass
 
     def start(self):

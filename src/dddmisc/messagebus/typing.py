@@ -1,13 +1,14 @@
 import typing as t
 
-from dddmisc.domain_message import Event, Command
+from dddmisc.messages import DomainEvent, DomainCommand, DomainCommandResponse
 
+AsyncEventHandlerType = t.Callable[[DomainEvent], t.Awaitable]
+AsyncCommandHandlerType = t.Callable[[DomainCommand], t.Awaitable[DomainCommandResponse]]
 
-AsyncEventHandlerType = t.Callable[[Event], t.Awaitable]
-AsyncCommandHandlerType = t.Callable[[Command], t.Awaitable[object]]  # Заменить на DomainResponse
+SyncEventHandlerType = t.Callable[[DomainEvent], None]
+SyncCommandHandlerType = t.Callable[[DomainCommand], DomainCommandResponse]
 
-SyncEventHandlerType = t.Callable[[Event], None]
-SyncCommandHandlerType = t.Callable[[Command], object]  # Заменить на DomainResponse
-
-EventHandlerType = t.Callable[[Event], t.Optional[t.Awaitable]]
-CommandHandlerType = t.Callable[[Command], t.Union[object, t.Awaitable[object]]]  # Заменить на DomainResponse
+EventHandlerType = t.Callable[[DomainEvent], t.Optional[t.Awaitable]]
+CommandHandlerType = t.Callable[
+    [DomainCommand],
+    t.Union[DomainCommandResponse, t.Awaitable[DomainCommandResponse]]]

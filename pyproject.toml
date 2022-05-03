@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "aio-ddd-utils"
+name = "dddmisc"
 version = "0.1.0"
-description = "Python async DDD utilites"
+description = "Python DDD utilites"
 authors = ["Vladislav Vorobyov <vladislav.vorobyov@gmail.com>"]
 packages = [
     { include = "dddmisc", from = "src" }
@@ -47,5 +47,5 @@ exclude_lines = [
 
 [tool.poe.tasks]
 lint = "poetry run pylama ./src --ignore E501 --linters print,pyflakes --format pylint"
-test = "poetry run pytest --cov=aioddd_utils --cov-report=term-missing tests"
+test = "poetry run pytest --cov=dddmisc --cov-report=term-missing tests"
 clear = "rm -fr src/*.egg-info dist .pytest_cache .coverage"

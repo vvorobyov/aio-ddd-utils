@@ -1,4 +1,4 @@
-from dddmisc.domain_message import Event, Command
+from dddmisc.messages import DomainEvent, DomainCommand
 from dddmisc.messagebus.base import BaseExternalMessageBus, EventConfigsCollection, CommandConfigsCollection
 
 
@@ -13,14 +13,17 @@ class TestBaseExternalMessageBus:
         assert isinstance(bus._commands_configs, CommandConfigsCollection)
 
     def test_consume_event(self):
-        class TestEvent(Event):
-            __domain_name__ = 'test-consume-event'
+        class TestEvent(DomainEvent):
+            class Meta:
+                domain = 'test-consume-event'
 
-        class TestEvent2(Event):
-            __domain_name__ = 'test-consume-event'
+        class TestEvent2(DomainEvent):
+            class Meta:
+                domain = 'test-consume-event'
 
-        class TestEvent3(Event):
-            __domain_name__ = 'test-consume-event'
+        class TestEvent3(DomainEvent):
+            class Meta:
+                domain = 'test-consume-event'
 
         handlers = [
             lambda event: None,
@@ -47,14 +50,17 @@ class TestBaseExternalMessageBus:
         assert len(bus._events_configs.get_event_handlers(TestEvent)) == 4
 
     def test_consume_command(self):
-        class TestCommand1(Command):
-            __domain_name__ = 'test-consume-command'
+        class TestCommand1(DomainCommand):
+            class Meta:
+                domain = 'test-consume-command'
 
-        class TestCommand2(Command):
-            __domain_name__ = 'test-consume-command'
+        class TestCommand2(DomainCommand):
+            class Meta:
+                domain = 'test-consume-command'
 
-        class TestCommand3(Command):
-            __domain_name__ = 'test-consume-command'
+        class TestCommand3(DomainCommand):
+            class Meta:
+                domain = 'test-consume-command'
 
         handler1 = lambda event: 1
         handler2 = lambda event: 2

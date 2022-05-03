@@ -5,8 +5,8 @@ from aio_pika.abc import AbstractExchange, AbstractQueue, AbstractRobustConnecti
     AbstractIncomingMessage
 from yarl import URL
 
-from dddmisc.domain_message import get_message_class, Event
-from dddmisc.domain_message.messages import BaseMessage
+from dddmisc.messages import get_message_class, DomainEvent, DomainCommand
+from dddmisc.messages.messages import DomainMessage
 from dddmisc.messagebus.rabbitmq.abstract import AbstractRabbitDomainClient
 
 
@@ -20,7 +20,7 @@ class RabbitSelfDomainClient(AbstractRabbitDomainClient):
     def __init__(self, url: t.Union[str, URL], self_domain: str, connected_domain: str, *args, **kwargs):
         super(RabbitSelfDomainClient, self).__init__(url, self_domain, self_domain, *args, **kwargs)
 
-    async def handle(self, message: BaseMessage):
+    async def handle(self, message: DomainMessage):
         pass
 
     async def start(self):
@@ -54,12 +54,11 @@ class RabbitSelfDomainClient(AbstractRabbitDomainClient):
 
     async def _command_callback(self, message: AbstractIncomingMessage):
         publisher = message.user_id
-        routing_list = message.routing_key.split('.')
-        message_class = get_message_class(routing_list[0], routing_list[1])
-        domain_message = message_class.loads(message.body)
-        if isinstance(domain_message, Event):
+        message_class = get_message_class(message.routing_key)
+        domain_message = message_class.loads(message.body.decode())
+        if isinstance(domain_message, DomainEvent):
             await self._callback(domain_message, publisher)
-        else:
+        elif isinstance(domain_message, DomainCommand):
             result = await self._callback(domain_message, publisher)
             await self._publish_response(result, message.reply_to)
 
@@ -111,5 +110,5 @@ class RabbitOtherDomainClient(AbstractRabbitDomainClient):
     async def _event_callback(self, message: AbstractIncomingMessage):
         pass
 
-    async def handle(self, message: BaseMessage):
+    async def handle(self, message: DomainMessage):
         pass

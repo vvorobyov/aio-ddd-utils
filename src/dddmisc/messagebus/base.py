@@ -3,18 +3,18 @@ import typing as t
 
 import attr
 
-from dddmisc.domain_message import Event, Command
+from dddmisc.messages import DomainEvent, DomainCommand
 from dddmisc.messagebus.typing import EventHandlerType, CommandHandlerType
 
 
 @attr.s(frozen=True)
 class EventConfig:
-    event_type: t.Type[Event] = attr.ib()
+    event_type: t.Type[DomainEvent] = attr.ib()
     _handlers: t.Set[EventHandlerType] = attr.ib(init=False, factory=set)
 
     @property
     def domain(self) -> str:
-        return self.event_type.__domain_name__
+        return self.event_type.get_domain_name()
 
     @property
     def handlers(self) -> t.Iterable[EventHandlerType]:
@@ -26,9 +26,9 @@ class EventConfig:
 
 class EventConfigsCollection:
     def __init__(self):
-        self._configs: dict[t.Type[Event], EventConfig] = {}
+        self._configs: dict[t.Type[DomainEvent], EventConfig] = {}
 
-    def add(self, event_type: t.Type[Event], *handlers: EventHandlerType):
+    def add(self, event_type: t.Type[DomainEvent], *handlers: EventHandlerType):
         self._configs.setdefault(event_type, EventConfig(event_type)).add_handlers(handlers)
 
     def get_events_by_domain_name(self, domain_name: str):
@@ -36,17 +36,17 @@ class EventConfigsCollection:
                 for event_cfg in self._configs.values()
                 if event_cfg.domain == domain_name)
 
-    def get_event_handlers(self, event: t.Type[Event]) -> t.Tuple[EventHandlerType, ...]:
+    def get_event_handlers(self, event: t.Type[DomainEvent]) -> t.Tuple[EventHandlerType, ...]:
         event_cfg = self._configs.get(event, None)
         if event_cfg:
             return tuple(event_cfg.handlers)
         else:
             return ()
 
-    def __contains__(self, item: t.Union[t.Type[Event], Event]):
+    def __contains__(self, item: t.Union[t.Type[DomainEvent], DomainEvent]):
         if not inspect.isclass(item):
             item = type(item)
-        if not issubclass(item, Event):
+        if not issubclass(item, DomainEvent):
             return False
         return item in self._configs
 
@@ -54,13 +54,13 @@ class EventConfigsCollection:
 @attr.s(frozen=True)
 class CommandConfig:
 
-    command_type: t.Type[Command] = attr.ib()
+    command_type: t.Type[DomainCommand] = attr.ib()
     _handler: CommandHandlerType = attr.ib(default=None)
     _allowed_domains: t.Set[str] = attr.ib(factory=set)
 
     @property
     def domain(self) -> str:
-        return self.command_type.__domain_name__
+        return self.command_type.get_domain_name()
 
     @property
     def handler(self) -> CommandHandlerType:
@@ -79,12 +79,12 @@ class CommandConfig:
 class CommandConfigsCollection:
 
     def __init__(self):
-        self._configs: dict[t.Type[Command], CommandConfig] = {}
+        self._configs: dict[t.Type[DomainCommand], CommandConfig] = {}
 
-    def set(self, command_type: t.Type[Command], handler: CommandHandlerType):
+    def set(self, command_type: t.Type[DomainCommand], handler: CommandHandlerType):
         self._configs.setdefault(command_type, CommandConfig(command_type)).set_handler(handler)
 
-    def set_permissions(self, command_type: t.Type[Command], *allowed_domains: str):
+    def set_permissions(self, command_type: t.Type[DomainCommand], *allowed_domains: str):
         self._configs.setdefault(command_type, CommandConfig(command_type)).add_permissions(allowed_domains)
 
     def get_commands_by_domain_name(self, domain_name: str):
@@ -92,21 +92,21 @@ class CommandConfigsCollection:
                 for command_cfg in self._configs.values()
                 if command_cfg.domain == domain_name)
 
-    def get_command_handler(self, command: t.Type[Command]) -> t.Optional[CommandHandlerType]:
+    def get_command_handler(self, command: t.Type[DomainCommand]) -> t.Optional[CommandHandlerType]:
         command_cfg = self._configs.get(command, None)
         if command_cfg:
             return command_cfg.handler
 
-    def check_command_permission(self, command: t.Type[Command], publisher: str) -> bool:
+    def check_command_permission(self, command: t.Type[DomainCommand], publisher: str) -> bool:
         command_cfg = self._configs.get(command, None)
         if command_cfg:
             return command_cfg.check_permission(publisher)
         return False
 
-    def __contains__(self, item: t.Union[t.Type[Command], Command]):
+    def __contains__(self, item: t.Union[t.Type[DomainCommand], DomainCommand]):
         if not inspect.isclass(item):
             item = type(item)
-        if not issubclass(item, Command):
+        if not issubclass(item, DomainCommand):
             return False
         return item in self._configs
 
@@ -122,16 +122,16 @@ class BaseExternalMessageBus:
     def domain(self) -> str:
         return self._domain
 
-    def consume_event(self, event: t.Type[Event], *handlers: EventHandlerType):
-        self._registered_domains.add(event.__domain_name__)
+    def consume_event(self, event: t.Type[DomainEvent], *handlers: EventHandlerType):
+        self._registered_domains.add(event.get_domain_name())
         self._events_configs.add(event, *handlers)
 
-    def consume_command(self, command: t.Type[Command], handler: CommandHandlerType):
-        self._registered_domains.add(command.__domain_name__)
+    def consume_command(self, command: t.Type[DomainCommand], handler: CommandHandlerType):
+        self._registered_domains.add(command.get_domain_name())
         self._commands_configs.set(command, handler)
 
-    def set_permission_for_command(self, command: t.Type[Command], *allowed_domains: str):
-        self._registered_domains.add(command.__domain_name__)
+    def set_permission_for_command(self, command: t.Type[DomainCommand], *allowed_domains: str):
+        self._registered_domains.add(command.get_domain_name())
         self._commands_configs.set_permissions(command, *allowed_domains)
 
     def get_registered_domains(self) -> t.Iterable[str]:

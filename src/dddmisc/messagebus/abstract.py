@@ -1,7 +1,7 @@
 import abc
 from asyncio import AbstractEventLoop
 
-from dddmisc.domain_message.messages import BaseMessage
+from dddmisc.messages.messages import DomainMessage
 
 __all__ = ['AbstractSyncExternalMessageBus', 'AbstractAsyncExternalMessageBus']
 
@@ -19,7 +19,7 @@ class AbstractAsyncExternalMessageBus(abc.ABC):
         raise RuntimeError('loop is already set')
 
     @abc.abstractmethod
-    async def handle(self, message: BaseMessage):
+    async def handle(self, message: DomainMessage):
         ...
 
     @abc.abstractmethod
@@ -34,7 +34,7 @@ class AbstractAsyncExternalMessageBus(abc.ABC):
 class AbstractSyncExternalMessageBus(abc.ABC):
 
     @abc.abstractmethod
-    def handle(self, message: BaseMessage):
+    def handle(self, message: DomainMessage):
         ...
 
     @abc.abstractmethod

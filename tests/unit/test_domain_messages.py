@@ -8,11 +8,8 @@ from uuid import UUID
 import pytest
 import yarl
 
-from dddmisc.messages import DomainStructure
-from dddmisc.messages import (fields,
-    get_message_class, DomainMessage,
-
-)
+from dddmisc.messages import (fields, get_message_class, DomainStructure)
+from dddmisc.messages.messages import DomainMessage
 from dddmisc.messages.core import Metadata, BaseDomainMessage, DomainMessageMeta
 
 

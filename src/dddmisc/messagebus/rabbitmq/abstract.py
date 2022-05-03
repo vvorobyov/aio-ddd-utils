@@ -7,12 +7,12 @@ from aio_pika import connect_robust
 from aio_pika.abc import AbstractConnection
 from yarl import URL
 
-from dddmisc.domain_message.messages import BaseMessage
-from ...domain_message import Event, Command, AbstractDomainMessage
+from dddmisc.messages.messages import DomainMessage
+from dddmisc.messages import DomainEvent, DomainCommand, DomainCommandResponse
 
 
 PublisherName = str
-CallbackType = t.Callable[[AbstractDomainMessage, PublisherName], t.Awaitable[t.Optional[object]]]
+CallbackType = t.Callable[[DomainMessage, PublisherName], t.Awaitable[t.Optional[DomainCommandResponse]]]
 
 
 class AbstractRabbitDomainClient(abc.ABC):
@@ -20,7 +20,7 @@ class AbstractRabbitDomainClient(abc.ABC):
 
     def __init__(self, url: t.Union[str, URL],
                  self_domain: str, connected_domain: str,
-                 events: t.Iterable[t.Type[Event]], commands: t.Iterable[t.Type[Command]],
+                 events: t.Iterable[t.Type[DomainEvent]], commands: t.Iterable[t.Type[DomainCommand]],
                  callback: CallbackType,
                  *, permanent_consume=True, prefetch_count=0,
                  loop: AbstractEventLoop = None):
@@ -43,7 +43,7 @@ class AbstractRabbitDomainClient(abc.ABC):
         return self._connected_domain
 
     @abc.abstractmethod
-    async def handle(self, message: BaseMessage):
+    async def handle(self, message: DomainMessage):
         pass
 
     async def start(self):

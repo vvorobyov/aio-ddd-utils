@@ -6,7 +6,7 @@ import pytest
 from aio_pika import RobustExchange, RobustQueue
 from aio_pika.abc import AbstractRobustExchange
 
-from dddmisc.domain_message import Event, fields
+from dddmisc.messages import DomainEvent, fields
 from dddmisc.messagebus.rabbitmq.domain_clients import RabbitSelfDomainClient, RabbitOtherDomainClient
 from dddmisc.messagebus.rabbitmq import AsyncRabbitMessageBus
 from integration.conftest import random_word
