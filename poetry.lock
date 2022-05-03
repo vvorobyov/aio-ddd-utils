@@ -46,7 +46,7 @@ develop = false
 aiohttp = "*"
 
 [package.extras]
-all = ["flake8 (>=2.2.0)", "sphinx-rtd-theme", "mock (>=1.0.1)", "pika (>=0.10.0)", "wheel", "coverage (>=4.0)", "aiohttp", "nose (>=1.3.0)", "Sphinx (>=1.2.2)"]
+all = ["aiohttp", "flake8 (>=2.2.0)", "coverage (>=4.0)", "sphinx-rtd-theme", "wheel", "pika (>=0.10.0)", "nose (>=1.3.0)", "Sphinx (>=1.2.2)", "mock (>=1.0.1)"]
 docs = ["Sphinx (>=1.2.2)", "sphinx-rtd-theme"]
 packaging = ["wheel"]
 test = ["coverage (>=4.0)", "flake8 (>=2.2.0)", "pika (>=0.10.0)", "mock (>=1.0.1)", "nose (>=1.3.0)"]
@@ -103,7 +103,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 name = "attrs"
 version = "21.4.0"
 description = "Classes Without Boilerplate"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
@@ -155,17 +155,6 @@ optional = false
 python-versions = ">=3.7"
 
 [[package]]
-name = "httplib2"
-version = "0.20.4"
-description = "A comprehensive HTTP client library."
-category = "dev"
-optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
-
-[package.dependencies]
-pyparsing = {version = ">=2.4.2,<3.0.0 || >3.0.0,<3.0.1 || >3.0.1,<3.0.2 || >3.0.2,<3.0.3 || >3.0.3,<4", markers = "python_version > \"3.0\""}
-
-[[package]]
 name = "idna"
 version = "3.3"
 description = "Internationalized Domain Names in Applications (IDNA)"
@@ -180,23 +169,6 @@ description = "iniconfig: brain-dead simple config-ini parsing"
 category = "dev"
 optional = false
 python-versions = "*"
-
-[[package]]
-name = "marshmallow"
-version = "3.15.0"
-description = "A lightweight library for converting complex datatypes to and from native Python datatypes."
-category = "main"
-optional = false
-python-versions = ">=3.7"
-
-[package.dependencies]
-packaging = "*"
-
-[package.extras]
-dev = ["pytest", "pytz", "simplejson", "mypy (==0.940)", "flake8 (==4.0.1)", "flake8-bugbear (==22.1.11)", "pre-commit (>=2.4,<3.0)", "tox"]
-docs = ["sphinx (==4.4.0)", "sphinx-issues (==3.0.1)", "alabaster (==0.7.12)", "sphinx-version-warning (==1.1.2)", "autodocsumm (==0.2.7)"]
-lint = ["mypy (==0.940)", "flake8 (==4.0.1)", "flake8-bugbear (==22.1.11)", "pre-commit (>=2.4,<3.0)"]
-tests = ["pytest", "pytz", "simplejson"]
 
 [[package]]
 name = "mccabe"
@@ -218,7 +190,7 @@ python-versions = ">=3.7"
 name = "packaging"
 version = "21.3"
 description = "Core utilities for Python packages"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.6"
 
@@ -244,19 +216,6 @@ description = "Bring colors to your terminal."
 category = "dev"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
-
-[[package]]
-name = "pika"
-version = "1.2.1"
-description = "Pika Python AMQP Client Library"
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.extras]
-gevent = ["gevent"]
-tornado = ["tornado"]
-twisted = ["twisted"]
 
 [[package]]
 name = "pluggy"
@@ -350,23 +309,12 @@ vulture = ["vulture"]
 name = "pyparsing"
 version = "3.0.8"
 description = "pyparsing module - Classes and methods to define and execute parsing grammars"
-category = "main"
+category = "dev"
 optional = false
 python-versions = ">=3.6.8"
 
 [package.extras]
 diagrams = ["railroad-diagrams", "jinja2"]
-
-[[package]]
-name = "pyrabbit"
-version = "1.1.0"
-description = "A Pythonic interface to the RabbitMQ Management HTTP API"
-category = "dev"
-optional = false
-python-versions = "*"
-
-[package.dependencies]
-httplib2 = "*"
 
 [[package]]
 name = "pytest"
@@ -468,7 +416,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "26558559134f0286b7c8645474454c10e501bbf2a1bb559baa1b097051669104"
+content-hash = "80d1d0081549264c4f58b461d61cd06001977d75f4e5f4eed5f109dc5ec9af31"
 
 [metadata.files]
 aio-pika = [
@@ -681,10 +629,6 @@ frozenlist = [
     {file = "frozenlist-1.3.0-cp39-cp39-win_amd64.whl", hash = "sha256:772965f773757a6026dea111a15e6e2678fbd6216180f82a48a40b27de1ee2ab"},
     {file = "frozenlist-1.3.0.tar.gz", hash = "sha256:ce6f2ba0edb7b0c1d8976565298ad2deba6f8064d2bebb6ffce2ca896eb35b0b"},
 ]
-httplib2 = [
-    {file = "httplib2-0.20.4-py3-none-any.whl", hash = "sha256:8b6a905cb1c79eefd03f8669fd993c36dc341f7c558f056cb5a33b5c2f458543"},
-    {file = "httplib2-0.20.4.tar.gz", hash = "sha256:58a98e45b4b1a48273073f905d2961666ecf0fbac4250ea5b47aef259eb5c585"},
-]
 idna = [
     {file = "idna-3.3-py3-none-any.whl", hash = "sha256:84d9dd047ffa80596e0f246e2eab0b391788b0503584e8945f2368256d2735ff"},
     {file = "idna-3.3.tar.gz", hash = "sha256:9d643ff0a55b762d5cdb124b8eaa99c66322e2157b69160bc32796e824360e6d"},
@@ -692,10 +636,6 @@ idna = [
 iniconfig = [
     {file = "iniconfig-1.1.1-py2.py3-none-any.whl", hash = "sha256:011e24c64b7f47f6ebd835bb12a743f2fbe9a26d4cecaa7f53bc4f35ee9da8b3"},
     {file = "iniconfig-1.1.1.tar.gz", hash = "sha256:bc3af051d7d14b2ee5ef9969666def0cd1a000e121eaea580d4a313df4b37f32"},
-]
-marshmallow = [
-    {file = "marshmallow-3.15.0-py3-none-any.whl", hash = "sha256:ff79885ed43b579782f48c251d262e062bce49c65c52412458769a4fb57ac30f"},
-    {file = "marshmallow-3.15.0.tar.gz", hash = "sha256:2aaaab4f01ef4f5a011a21319af9fce17ab13bf28a026d1252adab0e035648d5"},
 ]
 mccabe = [
     {file = "mccabe-0.7.0-py2.py3-none-any.whl", hash = "sha256:6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e"},
@@ -773,10 +713,6 @@ pastel = [
     {file = "pastel-0.2.1-py2.py3-none-any.whl", hash = "sha256:4349225fcdf6c2bb34d483e523475de5bb04a5c10ef711263452cb37d7dd4364"},
     {file = "pastel-0.2.1.tar.gz", hash = "sha256:e6581ac04e973cac858828c6202c1e1e81fee1dc7de7683f3e1ffe0bfd8a573d"},
 ]
-pika = [
-    {file = "pika-1.2.1-py2.py3-none-any.whl", hash = "sha256:fe89e95fb2d8d06fd713eeae2938299941e0ec329db37afca758f5f9458ce169"},
-    {file = "pika-1.2.1.tar.gz", hash = "sha256:e5fbf3a0a3599f4e114f6e4a7af096f9413a8f24f975c2657ba2fac3c931434f"},
-]
 pluggy = [
     {file = "pluggy-1.0.0-py2.py3-none-any.whl", hash = "sha256:74134bbf457f031a36d68416e1509f34bd5ccc019f0bcc952c7b909d06b37bd3"},
     {file = "pluggy-1.0.0.tar.gz", hash = "sha256:4224373bacce55f955a878bf9cfa763c1e360858e330072059e10bad68531159"},
@@ -808,9 +744,6 @@ pylama = [
 pyparsing = [
     {file = "pyparsing-3.0.8-py3-none-any.whl", hash = "sha256:ef7b523f6356f763771559412c0d7134753f037822dad1b16945b7b846f7ad06"},
     {file = "pyparsing-3.0.8.tar.gz", hash = "sha256:7bf433498c016c4314268d95df76c81b842a4cb2b276fa3312cfb1e1d85f6954"},
-]
-pyrabbit = [
-    {file = "pyrabbit-1.1.0.tar.gz", hash = "sha256:50b8995fbfde14820ddc97292312c8f0c77054748c2b018138d03d94e400c39c"},
 ]
 pytest = [
     {file = "pytest-7.1.2-py3-none-any.whl", hash = "sha256:13d0e3ccfc2b6e26be000cb6568c832ba67ba32e719443bfe725814d3c42433c"},
