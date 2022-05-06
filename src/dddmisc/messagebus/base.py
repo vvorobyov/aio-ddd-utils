@@ -36,8 +36,8 @@ class EventConfigsCollection:
                 for event_cfg in self._configs.values()
                 if event_cfg.domain == domain_name)
 
-    def get_event_handlers(self, event: t.Type[DomainEvent]) -> t.Tuple[EventHandlerType, ...]:
-        event_cfg = self._configs.get(event, None)
+    def get_event_handlers(self, event: t.Union[t.Type[DomainEvent], DomainEvent]) -> t.Tuple[EventHandlerType, ...]:
+        event_cfg = self._configs.get(type(event), self._configs.get(event, None))
         if event_cfg:
             return tuple(event_cfg.handlers)
         else:
@@ -92,13 +92,13 @@ class CommandConfigsCollection:
                 for command_cfg in self._configs.values()
                 if command_cfg.domain == domain_name)
 
-    def get_command_handler(self, command: t.Type[DomainCommand]) -> t.Optional[CommandHandlerType]:
-        command_cfg = self._configs.get(command, None)
+    def get_command_handler(self, command: t.Union[t.Type[DomainCommand], DomainCommand]) -> t.Optional[CommandHandlerType]:
+        command_cfg = self._configs.get(type(command), self._configs.get(command, None))
         if command_cfg:
             return command_cfg.handler
 
-    def check_command_permission(self, command: t.Type[DomainCommand], publisher: str) -> bool:
-        command_cfg = self._configs.get(command, None)
+    def check_command_permission(self, command: t.Union[t.Type[DomainCommand], DomainCommand], publisher: str) -> bool:
+        command_cfg = self._configs.get(type(command), self._configs.get(command, None))
         if command_cfg:
             return command_cfg.check_permission(publisher)
         return False
@@ -112,9 +112,9 @@ class CommandConfigsCollection:
 
 
 class BaseExternalMessageBus:
-    def __init__(self, *, domain: str):
+    def __init__(self, domain: str, **kwargs):
         self._domain = domain
-        self._registered_domains = set()
+        self._registered_domains = {domain}
         self._events_configs = EventConfigsCollection()
         self._commands_configs = CommandConfigsCollection()
 
@@ -122,16 +122,21 @@ class BaseExternalMessageBus:
     def domain(self) -> str:
         return self._domain
 
-    def consume_event(self, event: t.Type[DomainEvent], *handlers: EventHandlerType):
-        self._registered_domains.add(event.get_domain_name())
+    def register_domains(self, *domains: str):
+        self._registered_domains.update(domains)
+
+    def register_event_handler(self, event: t.Type[DomainEvent], *handlers: EventHandlerType):
+        self.register_domains(event.get_domain_name())
         self._events_configs.add(event, *handlers)
 
-    def consume_command(self, command: t.Type[DomainCommand], handler: CommandHandlerType):
-        self._registered_domains.add(command.get_domain_name())
+    def register_command_handler(self, command: t.Type[DomainCommand], handler: CommandHandlerType,
+                                 *allowed_domains: str):
+        self.register_domains(command.get_domain_name())
         self._commands_configs.set(command, handler)
+        self.set_permission_for_command(command, *allowed_domains)
 
     def set_permission_for_command(self, command: t.Type[DomainCommand], *allowed_domains: str):
-        self._registered_domains.add(command.get_domain_name())
+        self.register_domains(command.get_domain_name())
         self._commands_configs.set_permissions(command, *allowed_domains)
 
     def get_registered_domains(self) -> t.Iterable[str]:

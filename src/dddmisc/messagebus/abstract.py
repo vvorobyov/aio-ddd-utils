@@ -19,7 +19,7 @@ class AbstractAsyncExternalMessageBus(abc.ABC):
         raise RuntimeError('loop is already set')
 
     @abc.abstractmethod
-    async def handle(self, message: DomainMessage):
+    async def handle(self, message: DomainMessage, timeout: float = None):
         ...
 
     @abc.abstractmethod

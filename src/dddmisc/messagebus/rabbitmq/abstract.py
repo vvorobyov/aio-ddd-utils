@@ -30,8 +30,8 @@ class AbstractRabbitDomainClient(abc.ABC):
         self._connected_domain = connected_domain
         self._permanent_consume = permanent_consume
         self._prefetch_count = prefetch_count
-        self._events = events
-        self._commands = commands
+        self._events = tuple(events)
+        self._commands = tuple(commands)
         self._loop = loop or asyncio.get_event_loop()
 
     @property
