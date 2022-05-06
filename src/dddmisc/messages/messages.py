@@ -52,7 +52,7 @@ class DomainEvent(DomainMessage):
     pass
 
 
-def get_message_class(key: t.Union[t.Tuple[str, str], str]) -> t.Type[BaseDomainMessage]:
+def get_message_class(key: t.Union[t.Tuple[str, str], str]) -> t.Type[DomainMessage]:
     if isinstance(key, str):
         domain, name = key.split('.')
         key_ = (domain, name)

@@ -1,3 +1,4 @@
+import json
 import typing as t
 from .core import DomainExceptionMeta, BaseDomainException
 
@@ -12,10 +13,19 @@ def get_error_class(key: t.Union[t.Tuple[str, str], str]) -> t.Type[BaseDomainEr
         domain, code = key.split('.')
         key = (domain, code)
     domain, code = key
-    if code.startwith('00'):
+    if code.startswith('00'):
         domain = '***'
     collection = DomainExceptionMeta.get_exception_collection()
     return collection.get((domain, code), UnknownCommonError)
+
+
+def load_error(response: str) -> BaseDomainError:
+    data = json.loads(response)
+    code = data.get('code', None)
+    domain = data.get('domain', None)
+    error_class = get_error_class((domain, code))
+    error = error_class.load(data)
+    return error
 
 
 class CommonDomainError(BaseDomainError):

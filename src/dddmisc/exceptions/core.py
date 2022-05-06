@@ -1,3 +1,4 @@
+import json
 import typing as t
 import warnings
 from dataclasses import dataclass
@@ -36,7 +37,7 @@ class BaseDomainException(BaseException):
 
     def set_command_context(self, command: DomainCommand):
         self._reference = command.__reference__
-        self._domain = command.__domain__
+        self._domain = command.get_domain_name()
 
     def __repr__(self):
         return '{name}(domain={domain}, code={code}): {message}.'.format(
@@ -47,11 +48,11 @@ class BaseDomainException(BaseException):
         )
 
     @property
-    def reference(self) -> UUID:
+    def __reference__(self) -> UUID:
         return self._reference
 
     @property
-    def timestamp(self) -> float:
+    def __timestamp__(self) -> float:
         return self._timestamp
 
     @property
@@ -64,13 +65,17 @@ class BaseDomainException(BaseException):
 
     def dump(self) -> dict:
         return dict(
-            reference=str(self.reference),
-            timestamp=self.timestamp,
-            data=self.extra,
+            reference=str(self.__reference__),
+            timestamp=self.__timestamp__,
+            data=self._extra,
             message=self.message,
             code=self._code,
             domain=self._domain
         )
+
+    def dumps(self) -> str:
+        data = self.dump()
+        return json.dumps(data)
 
     @classmethod
     def load(cls: t.Type[T], data: dict) -> T:

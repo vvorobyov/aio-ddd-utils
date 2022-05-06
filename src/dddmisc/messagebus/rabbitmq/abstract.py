@@ -43,7 +43,11 @@ class AbstractRabbitDomainClient(abc.ABC):
         return self._connected_domain
 
     @abc.abstractmethod
-    async def handle(self, message: DomainMessage):
+    async def handle_command(self, command: DomainCommand, timeout: float = None):
+        pass
+
+    @abc.abstractmethod
+    async def handle_event(self, event: DomainEvent):
         pass
 
     async def start(self):

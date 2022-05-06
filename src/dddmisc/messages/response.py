@@ -46,6 +46,7 @@ class DomainCommandResponse:
         result = {
             '__reference__': str(self.__reference__),
             '__timestamp__': self.__timestamp__,
+            'data': {'reference': str(self.reference)}
         }
         return result
 
