@@ -31,7 +31,7 @@ def register_domains(self, *domains: str)
 - `loop: AbstractEventLoop` - EventLoop исползуемый при работе класса
 
 ```python
-def register_event_handler(self, event: t.Type[DomainEvent], *handlers: EventHandlerType)
+def register_event_handlers(self, event: t.Type[DomainEvent], *handlers: EventHandlerType)
 ```
 Метод регистрации функций обработчиков событий.
 Обработчик должен соответствовать следующей сигнатуре `t.Callable[[DomainEvent], t.Awaitable]`.
@@ -99,4 +99,41 @@ async def handle(self, message: DomainMessage, timeout: float = None) -> t.Optio
 При передаче в метод комманды в ответ будут возвращен объект `DomainCommandResponse`. Для вызовов с передечей событий ответ не предусмотрен.
 
 
+### Пример использования
 
+```python
+import asyncio
+from custom.messages import CustomCommand, CustomEvent
+from dddmisc.messagebus.rabbitmq import AsyncRabbitMessageBus
+
+async def custom_event_handler(event: CustomEvent):
+    print(event)
+
+
+def bootstrap() -> AsyncRabbitMessageBus:
+    import os
+    url = os.environ.get('DDD_RMQ_MESSAGEBUS_URL')
+    mb = AsyncRabbitMessageBus(url=url, domain='example')
+    mb.register_event_handlers(CustomEvent, custom_event_handler)
+    return mb
+
+
+async def send_command_to_custom(messagebus: AsyncRabbitMessageBus):
+    cmd = CustomCommand(value=123)
+    response = await messagebus.handle(cmd)
+    print(response)
+    
+
+async def main(loop):
+    messagebus = bootstrap()
+    messagebus.set_loop(loop)
+    await messagebus.start()
+    await send_command_to_custom(messagebus)
+    await messagebus.stop()
+    
+    
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main(loop))
+
+```

@@ -123,9 +123,16 @@ class BaseExternalMessageBus:
         return self._domain
 
     def register_domains(self, *domains: str):
+        """
+        Метод регистрации наименований доменов внешних сервисов с которыми будет взаимодействовать класс,
+        в частности отправлять комманды. Для каждого зарегистрированного домена будет поднято подключение
+        к соответствующему vhost. Регистрация допускается только до запуска шины методом start.
+        :param domains: перечень доменов регистрацию которых необходимо произвести в классе
+        :return:
+        """
         self._registered_domains.update(domains)
 
-    def register_event_handler(self, event: t.Type[DomainEvent], *handlers: EventHandlerType):
+    def register_event_handlers(self, event: t.Type[DomainEvent], *handlers: EventHandlerType):
         self.register_domains(event.get_domain_name())
         self._events_configs.add(event, *handlers)
 
