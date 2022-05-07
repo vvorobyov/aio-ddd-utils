@@ -1,9 +1,6 @@
 import asyncio
 import typing as t
 
-import aio_pika
-from aio_pika.abc import AbstractRobustConnection, AbstractConnection
-
 from dddmisc.messages import DomainEvent, DomainCommand, DomainCommandResponse
 from dddmisc.messages.messages import DomainMessage
 from dddmisc.messagebus.abstract import AbstractAsyncExternalMessageBus, AbstractSyncExternalMessageBus
@@ -13,7 +10,6 @@ from dddmisc.messagebus.rabbitmq.domain_clients import RabbitSelfDomainClient, R
 
 
 class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBus):
-    _connection: AbstractRobustConnection
 
     def __init__(self, *args, **kwargs):
         self._domain_clients: t.Dict[str, AbstractRabbitDomainClient] = {}
@@ -22,7 +18,7 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
     async def start(self):
         start_coroutines = []
 
-        for domain in self.get_registered_domains():
+        for domain in self.registered_domains:
             events = self._events_configs.get_events_by_domain_name(domain)
             commands = self._commands_configs.get_commands_by_domain_name(domain)
             if domain == self._domain:
@@ -57,14 +53,14 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
     async def handle(self, message: DomainMessage, timeout: float = None) -> t.Optional[DomainCommandResponse]:
         domain = message.get_domain_name()
         client = self._domain_clients.get(domain)
-        if isinstance(message, DomainCommand) and message.get_domain_name() in self.get_registered_domains():
+        if isinstance(message, DomainCommand):
             return await self._handler_command(message, timeout)
-        elif isinstance(message, DomainEvent) and message.get_domain_name() == self.domain:
+        elif isinstance(message, DomainEvent):
             return await client.handle_event(message)
 
     async def _handler_command(self, command: DomainCommand, timeout: float = None) -> DomainCommandResponse:
         domain = command.get_domain_name()
-        if domain in self.get_registered_domains():
+        if domain in self.registered_domains:
             client = self._domain_clients.get(domain)
             return await client.handle_command(command, timeout)
         else:

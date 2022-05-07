@@ -122,6 +122,10 @@ class BaseExternalMessageBus:
     def domain(self) -> str:
         return self._domain
 
+    @property
+    def registered_domains(self) -> t.Iterable[str]:
+        return tuple(self._registered_domains)
+
     def register_domains(self, *domains: str):
         """
         Метод регистрации наименований доменов внешних сервисов с которыми будет взаимодействовать класс,
@@ -146,5 +150,4 @@ class BaseExternalMessageBus:
         self.register_domains(command.get_domain_name())
         self._commands_configs.set_permissions(command, *allowed_domains)
 
-    def get_registered_domains(self) -> t.Iterable[str]:
-        return tuple(self._registered_domains)
+

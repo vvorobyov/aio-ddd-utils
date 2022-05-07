@@ -28,7 +28,7 @@ class TestAsyncRabbitMessageBus:
                 self_mb = AsyncRabbitMessageBus(url=cfg1.url, domain=cfg1.vhost)
                 other_mb = AsyncRabbitMessageBus(url=cfg2.url, domain=cfg2.vhost)
 
-                other_mb.register_event_handler(TestEvent, tst_event_handler)
+                other_mb.register_event_handlers(TestEvent, tst_event_handler)
 
                 await self_mb.start()
                 await other_mb.start()
