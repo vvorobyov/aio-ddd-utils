@@ -6,7 +6,7 @@ import pytest
 
 from dddmisc.exceptions import InternalServiceError
 from dddmisc.messages import DomainEvent, fields, DomainCommand, DomainCommandResponse
-from dddmisc.messagebus.rabbitmq import AsyncRabbitMessageBus
+from dddm_rabbit import AsyncRabbitMessageBus
 
 
 class TestAsyncRabbitMessageBus:

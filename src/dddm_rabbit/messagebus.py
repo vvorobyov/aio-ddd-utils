@@ -4,9 +4,9 @@ import typing as t
 from dddmisc.messages import DomainEvent, DomainCommand, DomainCommandResponse
 from dddmisc.messages.messages import DomainMessage
 from dddmisc.messagebus.abstract import AbstractAsyncExternalMessageBus, AbstractSyncExternalMessageBus
-from dddmisc.messagebus.rabbitmq.abstract import AbstractRabbitDomainClient
-from dddmisc.messagebus.rabbitmq.base import BaseRabbitMessageBus
-from dddmisc.messagebus.rabbitmq.domain_clients import RabbitSelfDomainClient, RabbitOtherDomainClient
+from dddm_rabbit.abstract import AbstractRabbitDomainClient
+from dddm_rabbit.base import BaseRabbitMessageBus
+from dddm_rabbit.domain_clients import RabbitSelfDomainClient, RabbitOtherDomainClient
 
 
 class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBus):
@@ -22,9 +22,9 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
             events = self._events_configs.get_events_by_domain_name(domain)
             commands = self._commands_configs.get_commands_by_domain_name(domain)
             if domain == self._domain:
-                client = RabbitSelfDomainClient(self._url, self.domain, '', events, commands, self._command_callback)
+                client = RabbitSelfDomainClient(self._url, self.domain, '', events, commands, self._execute_command_handler)
             else:
-                client = RabbitOtherDomainClient(self._url, self.domain, domain, events, commands, self._event_callback)
+                client = RabbitOtherDomainClient(self._url, self.domain, domain, events, commands, self._execute_event_handlers)
             self._domain_clients[domain] = client
             start_coroutines.append(client.start())
         results = await asyncio.gather(*start_coroutines, return_exceptions=True)
@@ -37,14 +37,14 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
         await asyncio.gather(*(client.stop(exception) for client in self._domain_clients.values()),
                              return_exceptions=True)
 
-    async def _event_callback(self, event: DomainEvent, publisher: str):
+    async def _execute_event_handlers(self, event: DomainEvent, publisher: str):
         if event.get_domain_name() != publisher:
             return
         handlers = self._events_configs.get_event_handlers(event)
         for handler in handlers:
             await handler(event)
 
-    async def _command_callback(self, command: DomainCommand, publisher: str) -> DomainCommandResponse:
+    async def _execute_command_handler(self, command: DomainCommand, publisher: str) -> DomainCommandResponse:
         domain = command.get_domain_name()
         if domain == self.domain and self._commands_configs.check_command_permission(command, publisher):
             handler = self._commands_configs.get_command_handler(command)
@@ -54,11 +54,11 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
         domain = message.get_domain_name()
         client = self._domain_clients.get(domain)
         if isinstance(message, DomainCommand):
-            return await self._handler_command(message, timeout)
+            return await self._handle_command(message, timeout)
         elif isinstance(message, DomainEvent):
             return await client.handle_event(message)
 
-    async def _handler_command(self, command: DomainCommand, timeout: float = None) -> DomainCommandResponse:
+    async def _handle_command(self, command: DomainCommand, timeout: float = None) -> DomainCommandResponse:
         domain = command.get_domain_name()
         if domain in self.registered_domains:
             client = self._domain_clients.get(domain)

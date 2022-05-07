@@ -1,17 +1,14 @@
 import asyncio
 import typing as t
-from uuid import UUID
 
 import aio_pika
-from aio_pika.abc import AbstractExchange, AbstractQueue, AbstractRobustConnection, AbstractConnection, \
-    AbstractIncomingMessage
+from aio_pika.abc import AbstractExchange, AbstractQueue, AbstractIncomingMessage
 from yarl import URL
 
 from dddmisc.exceptions import BaseDomainError, InternalServiceError
-from dddmisc.exceptions.errors import get_error_class, load_error
+from dddmisc.exceptions.errors import load_error
 from dddmisc.messages import get_message_class, DomainEvent, DomainCommand, DomainCommandResponse
-from dddmisc.messages.messages import DomainMessage
-from dddmisc.messagebus.rabbitmq.abstract import AbstractRabbitDomainClient
+from dddm_rabbit.abstract import AbstractRabbitDomainClient
 
 
 class RabbitSelfDomainClient(AbstractRabbitDomainClient):
@@ -26,14 +23,6 @@ class RabbitSelfDomainClient(AbstractRabbitDomainClient):
     async def handle_command(self, command: DomainCommand, timeout: float = None):
         raise NotImplementedError
         pass
-
-    async def handle_event(self, event: DomainEvent):
-        message = aio_pika.Message(event.dumps().encode(),
-                                   user_id=self.self_domain, type='EVENT',
-                                   message_id=str(event.__reference__))
-        routing_key = f'{event.get_domain_name()}.{event.__class__.__name__}'
-
-        result = await self._event_exchange.publish(message, routing_key)  # todo обработать ошибки отправки
 
     async def start(self):
         await super(RabbitSelfDomainClient, self).start()
@@ -64,6 +53,14 @@ class RabbitSelfDomainClient(AbstractRabbitDomainClient):
             await command_queue.bind('commands', f'{self.self_domain}.{command.__name__}')
         return command_queue
 
+    async def handle_event(self, event: DomainEvent):
+        message = aio_pika.Message(event.dumps().encode(),
+                                   user_id=self.self_domain, type='EVENT',
+                                   message_id=str(event.__reference__))
+        routing_key = f'{event.get_domain_name()}.{event.__class__.__name__}'
+
+        result = await self._event_exchange.publish(message, routing_key)  # todo обработать ошибки отправки
+
     async def _command_callback(self, message: AbstractIncomingMessage):
         """
 
@@ -76,7 +73,7 @@ class RabbitSelfDomainClient(AbstractRabbitDomainClient):
             domain_message = message_class.loads(message.body.decode())
             if isinstance(domain_message, DomainCommand):
                 try:
-                    result = await self._callback(domain_message, publisher)
+                    result = await self._executor(domain_message, publisher)
                 except BaseDomainError as err:
                     result = err
                     result.set_command_context(domain_message)
@@ -115,24 +112,6 @@ class RabbitOtherDomainClient(AbstractRabbitDomainClient):
         self._response_queue = await self._setup_response_consumer()
         await self._response_queue.consume(self._response_callback, no_ack=True)
 
-    async def handle_command(self, command: DomainCommand, timeout: float = None) -> DomainCommandResponse:
-        if isinstance(command, DomainCommand):
-            msg = aio_pika.Message(command.dumps().encode(),
-                                   user_id=self.self_domain,
-                                   reply_to=self._response_queue.name,
-                                   message_id=str(command.__reference__))
-            routing_key = f'{command.get_domain_name()}.{command.__class__.__name__}'
-            await self._command_exchange.publish(msg, routing_key)
-            future = self._requests.setdefault(str(command.__reference__),
-                                               self._loop.create_future())
-            if timeout is None:
-                return await future
-            else:
-                return await asyncio.wait_for(future, timeout=timeout)
-
-    async def handle_event(self, event: DomainEvent):
-        pass
-
     async def _setup_event_consumer(self) -> AbstractQueue:
         event_consume_channel = await self._connection.channel()
 
@@ -155,6 +134,24 @@ class RabbitOtherDomainClient(AbstractRabbitDomainClient):
         response_queue = await response_consume_channel.declare_queue(exclusive=True, auto_delete=True)
         return response_queue
 
+    async def handle_command(self, command: DomainCommand, timeout: float = None) -> DomainCommandResponse:
+        if isinstance(command, DomainCommand):
+            msg = aio_pika.Message(command.dumps().encode(),
+                                   user_id=self.self_domain,
+                                   reply_to=self._response_queue.name,
+                                   message_id=str(command.__reference__))
+            routing_key = f'{command.get_domain_name()}.{command.__class__.__name__}'
+            await self._command_exchange.publish(msg, routing_key)
+            future = self._requests.setdefault(str(command.__reference__),
+                                               self._loop.create_future())
+            if timeout is None:
+                return await future
+            else:
+                return await asyncio.wait_for(future, timeout=timeout)
+
+    async def handle_event(self, event: DomainEvent):
+        pass
+
     async def _response_callback(self, message: AbstractIncomingMessage):
         future = self._requests.pop(message.correlation_id, None)
         if future and not future.cancelled():
@@ -170,7 +167,7 @@ class RabbitOtherDomainClient(AbstractRabbitDomainClient):
             if message.type == 'EVENT':
                 event_class = get_message_class(message.routing_key)
                 event = event_class.loads(data=message.body.decode())
-                await self._callback(event, message.user_id)
+                await self._executor(event, message.user_id)
 
 
 

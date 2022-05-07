@@ -12,7 +12,7 @@ from dddmisc.messages import DomainEvent, DomainCommand, DomainCommandResponse
 
 
 PublisherName = str
-CallbackType = t.Callable[[DomainMessage, PublisherName], t.Awaitable[t.Optional[DomainCommandResponse]]]
+ExecutorType = t.Callable[[DomainMessage, PublisherName], t.Awaitable[t.Optional[DomainCommandResponse]]]
 
 
 class AbstractRabbitDomainClient(abc.ABC):
@@ -21,12 +21,12 @@ class AbstractRabbitDomainClient(abc.ABC):
     def __init__(self, url: t.Union[str, URL],
                  self_domain: str, connected_domain: str,
                  events: t.Iterable[t.Type[DomainEvent]], commands: t.Iterable[t.Type[DomainCommand]],
-                 callback: CallbackType,
+                 executor: ExecutorType,
                  *, permanent_consume=True, prefetch_count=0,
                  loop: AbstractEventLoop = None):
         self._base_url = URL(url).with_path('').with_user(self_domain)
         self._self_domain = self_domain
-        self._callback = callback
+        self._executor = executor
         self._connected_domain = connected_domain
         self._permanent_consume = permanent_consume
         self._prefetch_count = prefetch_count

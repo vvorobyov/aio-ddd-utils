@@ -104,7 +104,8 @@ async def handle(self, message: DomainMessage, timeout: float = None) -> t.Optio
 ```python
 import asyncio
 from custom.messages import CustomCommand, CustomEvent
-from dddmisc.messagebus.rabbitmq import AsyncRabbitMessageBus
+from dddm_rabbit import AsyncRabbitMessageBus
+
 
 async def custom_event_handler(event: CustomEvent):
     print(event)
@@ -122,7 +123,7 @@ async def send_command_to_custom(messagebus: AsyncRabbitMessageBus):
     cmd = CustomCommand(value=123)
     response = await messagebus.handle(cmd)
     print(response)
-    
+
 
 async def main(loop):
     messagebus = bootstrap()
@@ -130,8 +131,8 @@ async def main(loop):
     await messagebus.start()
     await send_command_to_custom(messagebus)
     await messagebus.stop()
-    
-    
+
+
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main(loop))
