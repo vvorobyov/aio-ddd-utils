@@ -24,7 +24,7 @@ class AbstractRabbitDomainClient(abc.ABC):
                  callback: CallbackType,
                  *, permanent_consume=True, prefetch_count=0,
                  loop: AbstractEventLoop = None):
-        self._base_url = URL(url).with_path('')
+        self._base_url = URL(url).with_path('').with_user(self_domain)
         self._self_domain = self_domain
         self._callback = callback
         self._connected_domain = connected_domain

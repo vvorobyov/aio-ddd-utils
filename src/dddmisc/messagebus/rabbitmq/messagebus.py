@@ -58,9 +58,26 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
         domain = message.get_domain_name()
         client = self._domain_clients.get(domain)
         if isinstance(message, DomainCommand) and message.get_domain_name() in self.get_registered_domains():
-            return await client.handle_command(message, timeout)
+            return await self._handler_command(message, timeout)
         elif isinstance(message, DomainEvent) and message.get_domain_name() == self.domain:
-            await client.handle_event(message)
+            return await client.handle_event(message)
+
+    async def _handler_command(self, command: DomainCommand, timeout: float = None) -> DomainCommandResponse:
+        domain = command.get_domain_name()
+        if domain in self.get_registered_domains():
+            client = self._domain_clients.get(domain)
+            return await client.handle_command(command, timeout)
+        else:
+            raise ValueError(f'Domain "{domain}" not registered in {self}')
+
+    async def _handle_event(self, event: DomainEvent):
+        domain = event.get_domain_name()
+        if domain == self.domain:
+            client = self._domain_clients.get(domain)
+            return await client.handle_event(event)
+        else:
+            raise RuntimeError(f'Forbidden to publish events not of yourself domain. '
+                               f'Event "{event.__class__.__name__}" of "{domain}" domain')
 
 
 class SyncRabbitMessageBus(BaseRabbitMessageBus, AbstractSyncExternalMessageBus):
