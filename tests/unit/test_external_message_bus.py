@@ -32,8 +32,8 @@ class TestBaseExternalMessageBus:
         ]
 
         bus = BaseExternalMessageBus(domain='test')
-        bus.consume_event(TestEvent, *handlers)
-        bus.consume_event(TestEvent2)
+        bus.register_event_handlers(TestEvent, *handlers)
+        bus.register_event_handlers(TestEvent2)
         assert list(bus._events_configs.get_events_by_domain_name('test-consume-event')) == [TestEvent, TestEvent2]
         assert list(bus._events_configs.get_events_by_domain_name('other-test-domain')) == []
         assert set(bus._events_configs.get_event_handlers(TestEvent)) == set(handlers)
@@ -45,7 +45,7 @@ class TestBaseExternalMessageBus:
         assert TestEvent3 not in bus._events_configs
 
         handlers.append(lambda event: None)
-        bus.consume_event(TestEvent, *handlers)
+        bus.register_event_handlers(TestEvent, *handlers)
         assert set(bus._events_configs.get_event_handlers(TestEvent)) == set(handlers)
         assert len(bus._events_configs.get_event_handlers(TestEvent)) == 4
 
@@ -67,7 +67,7 @@ class TestBaseExternalMessageBus:
 
         bus = BaseExternalMessageBus(domain='test')
 
-        bus.consume_command(TestCommand1, handler1)
+        bus.register_command_handler(TestCommand1, handler1)
         bus.set_permission_for_command(TestCommand2, 'test')
 
         assert set(bus._commands_configs.get_commands_by_domain_name(
@@ -75,7 +75,7 @@ class TestBaseExternalMessageBus:
         assert set(bus._commands_configs.get_commands_by_domain_name('test')) == set()
 
         assert bus._commands_configs.get_command_handler(TestCommand1) is handler1
-        bus.consume_command(TestCommand1, handler2)
+        bus.register_command_handler(TestCommand1, handler2)
         assert bus._commands_configs.get_command_handler(TestCommand1) is handler2
         assert bus._commands_configs.get_command_handler(TestCommand2) is None
 

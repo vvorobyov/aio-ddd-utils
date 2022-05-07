@@ -4,7 +4,7 @@ from uuid import uuid4, UUID
 
 import pytest
 
-from dddmisc.exceptions import InternalServiceError
+from dddmisc.exceptions import InternalServiceError, BaseDomainError
 from dddmisc.messages import DomainEvent, fields, DomainCommand, DomainCommandResponse
 from dddm_rabbit import AsyncRabbitMessageBus
 
@@ -125,7 +125,7 @@ class TestAsyncRabbitMessageBus:
                 await cfg1.client.create_user_permission(cfg2.vhost, cfg1.vhost, '.*', '.*', '.*')
 
                 async def tst_cmd_handler(command: DomainCommand):
-                    1 / 0
+                    raise InternalServiceError('test error')
 
                 self_mb = AsyncRabbitMessageBus(url=cfg1.url, domain=cfg1.vhost)
                 other_mb = AsyncRabbitMessageBus(url=cfg2.url, domain=cfg2.vhost)

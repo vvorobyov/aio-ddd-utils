@@ -61,4 +61,4 @@ def get_message_class(key: t.Union[t.Tuple[str, str], str]) -> t.Type[DomainMess
     collection = DomainMessageMeta.get_message_collection()
     if key_ in collection:
         return collection[key_]
-    raise RuntimeError(f"Message class by '{key}' not found")
+    raise ValueError(f"Message class by '{key}' not found")

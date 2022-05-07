@@ -1,10 +1,13 @@
 import asyncio
 import typing as t
+from collections import defaultdict
 
 import aio_pika
 from aio_pika.abc import AbstractExchange, AbstractQueue, AbstractIncomingMessage
 from yarl import URL
 
+from dddm_rabbit.exceptions import IncomingMessageError
+from dddmisc.abstract import CrossDomainObjectProtocol
 from dddmisc.exceptions import BaseDomainError, InternalServiceError
 from dddmisc.exceptions.errors import load_error
 from dddmisc.messages import get_message_class, DomainEvent, DomainCommand, DomainCommandResponse
@@ -29,7 +32,7 @@ class RabbitSelfDomainClient(AbstractRabbitDomainClient):
         self._event_exchange = await self._setup_event_publisher()
         self._response_exchange = await self._setup_response_publisher()
         self._command_queue = await self._setup_command_consumer()
-        self._command_consume_tag = await self._command_queue.consume(self._command_callback)
+        self._command_consume_tag = await self._command_queue.consume(self._command_handler)
 
     async def stop(self, exception: BaseException = None):
         await self._command_queue.cancel(self._command_consume_tag)
@@ -54,14 +57,11 @@ class RabbitSelfDomainClient(AbstractRabbitDomainClient):
         return command_queue
 
     async def handle_event(self, event: DomainEvent):
-        message = aio_pika.Message(event.dumps().encode(),
-                                   user_id=self.self_domain, type='EVENT',
-                                   message_id=str(event.__reference__))
+        message = self.create_message(event)
         routing_key = f'{event.get_domain_name()}.{event.__class__.__name__}'
-
         result = await self._event_exchange.publish(message, routing_key)  # todo обработать ошибки отправки
 
-    async def _command_callback(self, message: AbstractIncomingMessage):
+    async def _command_handler(self, message: AbstractIncomingMessage):
         """
 
         :param message:
@@ -69,30 +69,18 @@ class RabbitSelfDomainClient(AbstractRabbitDomainClient):
         """
         async with message.process():
             publisher = message.user_id
-            message_class = get_message_class(message.routing_key)
-            domain_message = message_class.loads(message.body.decode())
-            if isinstance(domain_message, DomainCommand):
-                try:
-                    result = await self._executor(domain_message, publisher)
-                except BaseDomainError as err:
-                    result = err
-                    result.set_command_context(domain_message)
-                except Exception as err:  # TODO не происходит возврат сообщения при ошибке
-                    result = InternalServiceError.from_exception(err)
-                    result.set_command_context(domain_message)
-                await self._publish_response(result, message.reply_to)
+            try:
+                domain_message = self.parse_message(message)
+                result = await self._executor(domain_message, publisher)
+            except (BaseDomainError, IncomingMessageError) as err:
+                result = err
+                result._reference = message.message_id
+            except:
+                # TODO добавить в логирование ошибки
+                raise
 
-    async def _publish_response(self, response, reply_to):
-        if isinstance(response, DomainCommandResponse):
-            message_type = 'SUCCESS'
-        else:
-            message_type = 'ERROR'
-        message = aio_pika.Message(response.dumps().encode(),
-                                   user_id=self.self_domain, type=message_type,
-                                   correlation_id=str(response.__reference__))
-
-        # todo предусмотреть повторные попытки публикации сообщения на случай обрыва связи
-        result = await self._response_exchange.publish(message, reply_to)
+            response = self.create_message(result)
+            await self._response_exchange.publish(response, message.reply_to)
 
 
 class RabbitOtherDomainClient(AbstractRabbitDomainClient):
@@ -102,15 +90,15 @@ class RabbitOtherDomainClient(AbstractRabbitDomainClient):
 
     def __init__(self, *args, **kwargs):
         super(RabbitOtherDomainClient, self).__init__(*args, **kwargs)
-        self._requests: dict[str, asyncio.Future] = {}
+        self._requests: dict[str, asyncio.Future] = defaultdict(self._loop.create_future)
 
     async def start(self):
         await super(RabbitOtherDomainClient, self).start()
         self._event_queue = await self._setup_event_consumer()
-        await self._event_queue.consume(self._event_callback)
+        await self._event_queue.consume(self._event_handler)
         self._command_exchange = await self._setup_command_publisher()
         self._response_queue = await self._setup_response_consumer()
-        await self._response_queue.consume(self._response_callback, no_ack=True)
+        await self._response_queue.consume(self._response_handler, no_ack=True)
 
     async def _setup_event_consumer(self) -> AbstractQueue:
         event_consume_channel = await self._connection.channel()
@@ -135,34 +123,34 @@ class RabbitOtherDomainClient(AbstractRabbitDomainClient):
         return response_queue
 
     async def handle_command(self, command: DomainCommand, timeout: float = None) -> DomainCommandResponse:
-        if isinstance(command, DomainCommand):
-            msg = aio_pika.Message(command.dumps().encode(),
-                                   user_id=self.self_domain,
-                                   reply_to=self._response_queue.name,
-                                   message_id=str(command.__reference__))
-            routing_key = f'{command.get_domain_name()}.{command.__class__.__name__}'
-            await self._command_exchange.publish(msg, routing_key)
-            future = self._requests.setdefault(str(command.__reference__),
-                                               self._loop.create_future())
-            if timeout is None:
-                return await future
-            else:
-                return await asyncio.wait_for(future, timeout=timeout)
+        msg = self.create_message(command, self._response_queue.name)
+        routing_key = f'{command.get_domain_name()}.{command.__class__.__name__}'
+        await self._command_exchange.publish(msg, routing_key)
+
+        future = self._requests[str(command.__reference__)]
+        result = await asyncio.wait_for(future, timeout=timeout)
+
+        if isinstance(result, BaseException):
+            raise result
+        else:
+            return result
 
     async def handle_event(self, event: DomainEvent):
         pass
 
-    async def _response_callback(self, message: AbstractIncomingMessage):
+    async def _response_handler(self, message: AbstractIncomingMessage):
         future = self._requests.pop(message.correlation_id, None)
         if future and not future.cancelled():
-            if message.type == 'SUCCESS':
-                result = DomainCommandResponse.loads(message.body.decode())
+            try:
+                result = self.parse_message(message)
                 future.set_result(result)
-            else:
-                result = load_error(message.body.decode())
-                future.set_exception(result)
+            except IncomingMessageError as err:
+                future.set_exception(err)
+            except Exception as err:
+                # TODO добавить логирование не известной ошибки
+                future.set_exception(err)
 
-    async def _event_callback(self, message: AbstractIncomingMessage):
+    async def _event_handler(self, message: AbstractIncomingMessage):
         async with message.process():
             if message.type == 'EVENT':
                 event_class = get_message_class(message.routing_key)

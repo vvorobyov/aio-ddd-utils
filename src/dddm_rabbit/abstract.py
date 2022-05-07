@@ -1,14 +1,20 @@
 import asyncio
+import json
 import typing as t
 import abc
 from asyncio import AbstractEventLoop
 
-from aio_pika import connect_robust
-from aio_pika.abc import AbstractConnection
+from aio_pika import connect_robust, Message
+from aio_pika.abc import AbstractConnection, AbstractMessage, AbstractIncomingMessage, AbstractExchange
 from yarl import URL
 
+from dddmisc.abstract import CrossDomainObjectProtocol
+from dddmisc.exceptions import BaseDomainError
+from dddmisc.exceptions.core import BaseDomainException
 from dddmisc.messages.messages import DomainMessage
-from dddmisc.messages import DomainEvent, DomainCommand, DomainCommandResponse
+from dddmisc.messages import DomainEvent, DomainCommand, DomainCommandResponse, get_message_class
+
+from . import exceptions, utils
 
 
 PublisherName = str
@@ -16,6 +22,12 @@ ExecutorType = t.Callable[[DomainMessage, PublisherName], t.Awaitable[t.Optional
 
 
 class AbstractRabbitDomainClient(abc.ABC):
+    __PARSE_METHODS = {
+        'COMMAND': utils.parse_command,
+        'EVENT': utils.parse_event,
+        'RESPONSE': utils.parse_response,
+        'ERROR': utils.parse_error
+    }
     _connection: AbstractConnection
 
     def __init__(self, url: t.Union[str, URL],
@@ -56,3 +68,39 @@ class AbstractRabbitDomainClient(abc.ABC):
 
     async def stop(self, exception: BaseException = None):
         await self._connection.close(exception)
+
+    @classmethod
+    def parse_message(cls, message: AbstractIncomingMessage):
+        message_type = message.type.upper() if message.type else None
+        if message_type not in ['COMMAND', 'EVENT', 'RESPONSE', 'ERROR']:
+            raise exceptions.UnknownMessageTypeError(f'Unknown message type: {message_type}', message_type=message_type)
+        return cls.__PARSE_METHODS[message_type](message)
+
+    def create_message(self, message, reply_to: str = None) -> AbstractMessage:
+        user_id = self.self_domain
+        message_id = None
+        correlation_id = None
+        headers = {}
+        if isinstance(message, DomainMessage):
+            message_id = str(message.__reference__)
+            body = message.dumps().encode()
+            headers['X-DDD-OBJECT-KEY'] = f'{message.get_domain_name()}.{message.__class__.__name__}'
+            type_ = 'COMMAND' if isinstance(message, DomainCommand) else 'EVENT'
+        elif isinstance(message, BaseDomainException):
+            correlation_id = message.__reference__
+            body = json.dumps(message.dump()).encode()
+            headers['X-DDD-OBJECT-KEY'] = f'{message.__metadata__.domain}.{message.__metadata__.code}'
+            type_ = 'ERROR'
+        elif isinstance(message, DomainCommandResponse):
+            correlation_id = message.__reference__
+            body = message.dumps().encode()
+            type_ = 'RESPONSE'
+        else:
+            raise TypeError(f'Unknown message type "{type(message)}"')
+
+        message = Message(body, user_id=user_id, type=type_, message_id=message_id, correlation_id=correlation_id,
+                          headers=headers, reply_to=reply_to)
+        return message
+
+
+

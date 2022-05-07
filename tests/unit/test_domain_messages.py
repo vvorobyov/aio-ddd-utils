@@ -236,7 +236,7 @@ class TestDomainMessageMeta:
         assert get_message_class('test_class_by_name.Test2') is Test2
         assert get_message_class('test_class_by_name2.Test3') is Test3
 
-        with pytest.raises(RuntimeError, match="Message class by 'test_class_by_name2.Test4' not found"):
+        with pytest.raises(ValueError, match="Message class by 'test_class_by_name2.Test4' not found"):
             get_message_class('test_class_by_name2.Test4')
 
 
