@@ -9,7 +9,7 @@ from yarl import URL
 from dddm_rabbit.exceptions import IncomingMessageError
 from dddmisc.abstract import CrossDomainObjectProtocol
 from dddmisc.exceptions import BaseDomainError, InternalServiceError
-from dddmisc.exceptions.errors import load_error
+from dddmisc.exceptions.errors import load_error, BaseServiceError
 from dddmisc.messages import get_message_class, DomainEvent, DomainCommand, DomainCommandResponse
 from dddm_rabbit.abstract import AbstractRabbitDomainClient
 
@@ -72,10 +72,10 @@ class RabbitSelfDomainClient(AbstractRabbitDomainClient):
             try:
                 domain_message = self.parse_message(message)
                 result = await self._executor(domain_message, publisher)
-            except (BaseDomainError, IncomingMessageError) as err:
+            except (BaseServiceError, BaseDomainError, IncomingMessageError) as err:
                 result = err
                 result._reference = message.message_id
-            except:
+            except Exception:
                 # TODO добавить в логирование ошибки
                 raise
 

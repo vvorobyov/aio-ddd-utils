@@ -4,20 +4,11 @@ import typing as t
 from dataclasses import dataclass
 from types import MappingProxyType
 
+from dddmisc.abstract import AbstractField
+
 
 class Nothing:
     pass
-
-
-class AbstractField(abc.ABC):
-
-    @abc.abstractmethod
-    def deserialize(self, value) -> t.Any:
-        pass
-
-    @abc.abstractmethod
-    def serialize(self, value) -> t.Any:
-        pass
 
 
 @dataclass(frozen=True)

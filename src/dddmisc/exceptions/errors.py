@@ -1,25 +1,16 @@
 import json
 import typing as t
-from .core import DomainExceptionMeta, BaseDomainException
+from .core import DDDExceptionMeta, BaseDDDException, DDDException
 
 
-class BaseDomainError(BaseDomainException, metaclass=DomainExceptionMeta):
-    class Meta:
-        is_baseclass = True
+def get_error_class(key: str) -> t.Type[BaseDDDException]:
+    collection = DDDExceptionMeta.get_exceptions_collection()
+    if key in collection:
+        return collection[key]
+    raise UnregisteredMessageClass(f'Not found error class with key {key}')
 
 
-def get_error_class(key: t.Union[t.Tuple[str, str], str]) -> t.Type[BaseDomainError]:
-    if isinstance(key, str):
-        domain, code = key.split('.')
-        key = (domain, code)
-    domain, code = key
-    if code.startswith('00'):
-        domain = '***'
-    collection = DomainExceptionMeta.get_exception_collection()
-    return collection.get((domain, code), UnknownCommonError)
-
-
-def load_error(response: str) -> BaseDomainError:
+def load_error(response: str) -> BaseDDDException:
     data = json.loads(response)
     code = data.get('code', None)
     domain = data.get('domain', None)
@@ -28,27 +19,41 @@ def load_error(response: str) -> BaseDomainError:
     return error
 
 
-class CommonDomainError(BaseDomainError):
+class BaseDomainError(DDDException, metaclass=DDDExceptionMeta):
+    pass
+
+
+class BaseServiceError(DDDException, metaclass=DDDExceptionMeta):
     class Meta:
+        domain = '__ddd_service__'
         is_baseclass = True
-        domain = '***'
-        group_id = '00'
 
 
-class UnknownCommonError(CommonDomainError):
+class UnregisteredErrorClass(BaseServiceError):
     class Meta:
-        error_id = '01'
+        template = '91'
 
 
-class InternalServiceError(CommonDomainError):
+class UnregisteredMessageClass(BaseServiceError):
+    class Meta:
+        template = '92'
+
+
+class JsonDecodeError(BaseServiceError):
+    class Meta:
+        template = '93'
+
+
+class ValidationError(BaseServiceError):
+    class Meta:
+        template = '94'
+
+
+class InternalServiceError(BaseServiceError):
 
     class Meta:
-        error_id = '02'
+        template = '01'
 
-    @classmethod
-    def from_exception(cls, error: Exception):
-        obj = cls(str(error))
-        return obj
 
 # TODO дописать классы исключений
 

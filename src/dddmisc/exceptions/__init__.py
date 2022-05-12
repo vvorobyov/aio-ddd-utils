@@ -1,5 +1,5 @@
 from .errors import (
     BaseDomainError,
-    UnknownCommonError,
+    UnregisteredErrorClass,
     InternalServiceError,
 )

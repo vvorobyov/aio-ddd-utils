@@ -7,7 +7,8 @@ from uuid import UUID
 
 import yarl
 
-from .core import AbstractField, Nothing, BaseDomainMessage
+from .core import Nothing, BaseDomainMessage
+from ..abstract import AbstractField
 from .structure import DomainStructure
 
 

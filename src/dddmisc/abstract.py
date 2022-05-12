@@ -1,4 +1,5 @@
 import abc
+import typing as t
 from typing import TypeVar, Type, Protocol, runtime_checkable
 from uuid import UUID
 
@@ -22,6 +23,7 @@ class CrossDomainObjectProtocol(Protocol):
 
     __reference__: UUID
     __timestamp__: float
+    __domain__: str
 
     @classmethod
     def load(cls: Type[T], data: dict) -> T:
@@ -36,3 +38,14 @@ class CrossDomainObjectProtocol(Protocol):
 
     def dumps(self) -> str:
         ...
+
+
+class AbstractField(abc.ABC):
+
+    @abc.abstractmethod
+    def deserialize(self, value) -> t.Any:
+        pass
+
+    @abc.abstractmethod
+    def serialize(self, value) -> t.Any:
+        pass

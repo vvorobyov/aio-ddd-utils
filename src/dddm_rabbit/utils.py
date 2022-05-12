@@ -4,7 +4,7 @@ from typing import TypeVar, Type
 from aio_pika.abc import AbstractIncomingMessage
 
 from dddm_rabbit import exceptions
-from dddmisc.exceptions.core import BaseDomainException
+from dddmisc.exceptions.core import BaseDDDException
 from dddmisc.exceptions.errors import get_error_class
 from dddmisc.messages import DomainCommand, get_message_class, DomainEvent, DomainCommandResponse
 
@@ -35,7 +35,7 @@ def parse_response(message: AbstractIncomingMessage) -> DomainCommandResponse:
     return obj
 
 
-def parse_error(message: AbstractIncomingMessage) -> BaseDomainException:
+def parse_error(message: AbstractIncomingMessage) -> BaseDDDException:
     class_key = message.headers.get('X-DDD-OBJECT-KEY', None)
     if class_key is None:
         raise exceptions.NotRegisteredMessageClassError('Не задан ключ идентификатор ошибка')

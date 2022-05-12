@@ -2,50 +2,33 @@ import json
 import typing as t
 import warnings
 from dataclasses import dataclass
-from uuid import UUID
+from uuid import UUID, uuid4
 import datetime as dt
 from types import MappingProxyType
 
+from dddmisc.abstract import CrossDomainObjectProtocol
 from dddmisc.messages import DomainCommand
 
 
 @dataclass(frozen=True)
 class Metadata:
     domain: str
-    group_id: str
-    error_id: str
     is_baseclass: bool
-
-    @property
-    def code(self):
-        return f'{self.group_id}{self.error_id}'
+    template: str = ''
 
 
 T = t.TypeVar('T')
 
 
-class BaseDomainException(BaseException):
+class BaseDDDException(Exception):
     __metadata__: Metadata
 
-    def __init__(self, message: str, **extra):
-        self._message: str = message
+    def __init__(self, message: str = None, **extra):
+        self._message: str = message or self.__metadata__.template.format(**extra)
         self._extra: dict = extra
-        self._code: str = self.__metadata__.code
-        self._domain: t.Optional[str] = self.__metadata__.domain
         self._timestamp: float = dt.datetime.now().timestamp()
-        self._reference: t.Optional[UUID] = None
-
-    def set_command_context(self, command: DomainCommand):
-        self._reference = command.__reference__
-        self._domain = command.get_domain_name()
-
-    def __repr__(self):
-        return '{name}(domain={domain}, code={code}): {message}.'.format(
-            name=self.__class__.__name__,
-            domain=self._domain if self._domain else '"domain not set"',
-            message=self._message,
-            code=self._code
-        )
+        self._reference: t.Optional[UUID] = uuid4()
+        self._domain = None
 
     @property
     def __reference__(self) -> UUID:
@@ -56,6 +39,10 @@ class BaseDomainException(BaseException):
         return self._timestamp
 
     @property
+    def __domain__(self) -> str:
+        return self.__metadata__.domain
+
+    @property
     def message(self) -> str:
         return self._message
 
@@ -63,13 +50,19 @@ class BaseDomainException(BaseException):
     def extra(self) -> MappingProxyType[str, t.Any]:
         return MappingProxyType(self._extra)
 
+    def set_context_from_command(self, command: CrossDomainObjectProtocol):
+        self._reference = command.__reference__
+        self.set_real_domain(command.__domain__)
+
+    def set_real_domain(self, domain_name: str):
+        self._domain = domain_name
+
     def dump(self) -> dict:
         return dict(
             reference=str(self.__reference__),
             timestamp=self.__timestamp__,
             data=self._extra,
             message=self.message,
-            code=self._code,
             domain=self._domain
         )
 
@@ -81,21 +74,29 @@ class BaseDomainException(BaseException):
     def load(cls: t.Type[T], data: dict) -> T:
         message = data.get('message', '')
         extra = data.get('data', {})
-        error: BaseDomainException = cls(message, **extra)
-
-        reference = data.get('reference', None)
-        error._reference = UUID(reference) if reference else None
-        error._timestamp = data.get('timestamp')
-        if error._domain == '***':
-            error._domain = data.get('domain')
-            error._code = data.get('code')
+        error: BaseDDDException = cls(message, **extra)
+        error._reference = UUID(data['reference'])
+        error._timestamp = data['timestamp']
+        error._domain = data['domain']
         return error
 
+    @classmethod
+    def loads(cls: t.Type[T], data: str) -> T:
+        data = json.loads(data)
+        return cls.load(data)
 
-class DomainExceptionMeta(type):
-    __EXCEPTIONS_COLLECTION: dict[t.Tuple[str, str], t.Type[BaseDomainException]] = {}
+    def __repr__(self):
+        return '{name}(domain={domain}): {message}.'.format(
+            name=self.__class__.__name__,
+            domain=self._domain if self._domain else '"domain not set"',
+            message=self._message,
+        )
 
-    def __new__(mcs, name: str, bases: t.Tuple[t.Type], attrs: dict) -> BaseDomainException:
+
+class DDDExceptionMeta(type):
+    __EXCEPTIONS_COLLECTION: dict[str, t.Type[BaseDDDException]] = {}
+
+    def __new__(mcs, name: str, bases: t.Tuple[t.Type], attrs: dict) -> BaseDDDException:
         module = attrs.get('__module__')
         fullname = f'{module}.{name}'
         base_class = mcs._get_base_class(fullname, bases)
@@ -107,64 +108,49 @@ class DomainExceptionMeta(type):
         return klass
 
     @staticmethod
-    def _create_metadata(name: str, base: t.Type[BaseDomainException], meta: t.Type) -> Metadata:
-        base_meta = getattr(base, '__metadata__', Metadata(None, None, None, True))
+    def _create_metadata(name: str, base: t.Type[BaseDDDException], meta: t.Type) -> Metadata:
+        base_meta = getattr(base, '__metadata__', Metadata(None, True))
         if base_meta.is_baseclass is False:
             raise RuntimeError(f'Cannot inherit {name} from {base!r}. Allowed inherit only from base classes.')
 
-        class_domain = base_meta.domain or getattr(meta, 'domain', None)
-        class_group_id = getattr(meta, 'group_id', None)
-        class_error_id = getattr(meta, 'error_id', None)
         is_baseclass = getattr(meta, 'is_baseclass', False)
-        if is_baseclass:
-            domain = base_meta.domain or class_domain
-            group_id = base_meta.group_id or class_group_id
-            if group_id == '00' and domain != '***':
-                raise RuntimeError(f'Error create class {name}({base.__name__}). '
-                                   f'Error group id "00" reserved for common errors.')
-            error_id = '00'
-            if class_error_id:
-                warnings.warn(RuntimeWarning(f'Attribute Meta.error_id ignored for class "{name}".'))
-        else:
-            domain = base_meta.domain
-            if domain is None:
-                raise RuntimeError(f'Error create class {name}({base.__name__}). '
-                                   f'Can inherit errors class only from classes with attribute "Meta.domain".')
+        domain = base_meta.domain or getattr(meta, 'domain', None)
+        if domain is None:
+            is_baseclass = True
+        template = getattr(meta, 'template', '')
 
-            group_id = base_meta.group_id
-            if class_group_id and class_group_id != group_id:
-                warnings.warn(RuntimeWarning(f'Attribute Meta.group_id ignored for class "{name}".'))
-
-            error_id = class_error_id
-            if error_id is None:
-                raise RuntimeError(f'Required set Meta.error_id for {name} class.')
-            if error_id == '00':
-                raise RuntimeError(f'Error create class {name}. Meta.error_id="00" reserved for base classes.')
-
-        return Metadata(domain, group_id, error_id, is_baseclass)
+        return Metadata(domain, is_baseclass, template)
 
     @staticmethod
-    def _get_base_class(name: str, bases: t.Tuple[t.Type]) -> t.Type[BaseDomainException]:
-        domain_bases = [base for base in bases if issubclass(base, BaseDomainException)]
+    def _get_base_class(name: str, bases: t.Tuple[t.Type]) -> t.Type[BaseDDDException]:
+        domain_bases = [base for base in bases if issubclass(base, BaseDDDException)]
         if len(domain_bases) > 1:
-            raise RuntimeError(f'{name} inherit from many "BaseDomainException" classes')
+            raise RuntimeError(f'{name} inherit from many "BaseDDDException" classes')
         elif len(domain_bases) == 0:
-            return BaseDomainException
+            return BaseDDDException
         else:
             return domain_bases[0]
 
     @classmethod
-    def _register_error_class(mcs, klass: t.Type[BaseDomainException]):
-        if not issubclass(klass, BaseDomainException) or klass.__metadata__.is_baseclass:
+    def _register_error_class(mcs, klass: t.Type[BaseDDDException]):
+        if not issubclass(klass, BaseDDDException) or klass.__metadata__.is_baseclass:
             return
         domain = klass.__metadata__.domain
-        code = klass.__metadata__.code
-        if (domain, code) is mcs.__EXCEPTIONS_COLLECTION:
+        name = klass.__name__
+        key = f'{domain}.{name}'
+        if key is mcs.__EXCEPTIONS_COLLECTION:
             raise RuntimeError(
-                f'Multiple register error class in domain "{klass.__metadata__.domain}" with code "{code}"')
-        mcs.__EXCEPTIONS_COLLECTION[(domain, code)] = klass
+                f'Multiple register error class in domain "{domain}" with name "{name}"')
+        mcs.__EXCEPTIONS_COLLECTION[key] = klass
 
     @classmethod
-    def get_exception_collection(mcs) -> MappingProxyType[t.Tuple[str, str], t.Type[BaseDomainException]]:
+    def get_exceptions_collection(mcs) -> MappingProxyType[str, t.Type[BaseDDDException]]:
         return MappingProxyType(mcs.__EXCEPTIONS_COLLECTION)
 
+    @property
+    def __domain__(cls: BaseDDDException) -> str:
+        return cls.__metadata__.domain
+
+
+class DDDException(BaseDDDException, metaclass=DDDExceptionMeta):
+    pass
