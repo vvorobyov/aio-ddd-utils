@@ -2,14 +2,12 @@ import asyncio
 import typing as t
 from collections import defaultdict
 
-import aio_pika
 from aio_pika.abc import AbstractExchange, AbstractQueue, AbstractIncomingMessage
 from yarl import URL
 
 from dddm_rabbit.exceptions import IncomingMessageError
-from dddmisc.abstract import CrossDomainObjectProtocol
-from dddmisc.exceptions import BaseDomainError, InternalServiceError
-from dddmisc.exceptions.errors import load_error, BaseServiceError
+from dddmisc.exceptions import BaseDomainError
+from dddmisc.exceptions.errors import BaseServiceError
 from dddmisc.messages import get_message_class, DomainEvent, DomainCommand, DomainCommandResponse
 from dddm_rabbit.abstract import AbstractRabbitDomainClient
 

@@ -52,7 +52,7 @@ class Field(AbstractField, t.Generic[T]):
         if value is Nothing and self.nullable:
             return None
         if value is Nothing:
-            raise AttributeError('Not set required attribute "{name}"'.format(name=self._field_name))
+            raise AttributeError('Not set required value')
         return self._deserialize(value)
 
     def _deserialize(self, value):
@@ -65,8 +65,7 @@ class Field(AbstractField, t.Generic[T]):
         return value
 
     def raise_type_error(self, value):
-        raise TypeError("'{name}' must be {type!r} (got {value!r} that is a {actual!r}).".format(
-            name=self._field_name,
+        raise TypeError("must be {type!r} (got {value!r} that is a {actual!r}).".format(
             type=self.value_type,
             actual=value.__class__,
             value=value,

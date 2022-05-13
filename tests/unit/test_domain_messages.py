@@ -8,6 +8,7 @@ from uuid import UUID
 import pytest
 import yarl
 
+from dddmisc.exceptions import UnregisteredMessageClass, ValidationError
 from dddmisc.messages import (fields, get_message_class, DomainStructure)
 from dddmisc.messages.messages import DomainMessage
 from dddmisc.messages.core import Metadata, BaseDomainMessage, DomainMessageMeta
@@ -196,8 +197,12 @@ class TestDomainMessageMeta:
 
         with pytest.raises(FrozenInstanceError, match="cannot assign to field 'other_str_field'"):
             obj.other_str_field = 'Test'
-        with pytest.raises(AttributeError, match='Not set required attribute "other_str_field"'):
+        with pytest.raises(ValidationError) as exc_info:
             Test()
+        assert list(exc_info.value.extra.keys()) == ['other_str_field']
+        assert len(exc_info.value.extra.values()) == 1
+        assert type(list(exc_info.value.extra.values())[0]) == AttributeError
+        assert str(list(exc_info.value.extra.values())[0]) == 'Not set required value'
 
     def test_init_baseclass(self):
         class Test(metaclass=DomainMessageMeta):
@@ -231,12 +236,11 @@ class TestDomainMessageMeta:
             class Meta:
                 domain = 'test_class_by_name2'
 
-        assert get_message_class(('test_class_by_name', 'Test1')) is Test1
         assert get_message_class('test_class_by_name.Test1') is Test1
         assert get_message_class('test_class_by_name.Test2') is Test2
         assert get_message_class('test_class_by_name2.Test3') is Test3
 
-        with pytest.raises(ValueError, match="Message class by 'test_class_by_name2.Test4' not found"):
+        with pytest.raises(UnregisteredMessageClass):
             get_message_class('test_class_by_name2.Test4')
 
 
@@ -424,7 +428,6 @@ class TestDomainMessage:
         assert obj.list_struct_field[0] is not obj.list_struct_field[1]
 
     def test_message_dump(self):
-
         class TestStructure(DomainStructure):
             field1 = fields.Integer()
             field2 = fields.String()
@@ -462,7 +465,7 @@ class TestDomainMessage:
             email_field='test@example.com',
             structure_field=TestStructure(field1=9876, field2='ZXC', field3=['X', 'Y', 'Z']),
             list_struct_field=[TestStructure(field1=9876, field2='ZXC', field3=['X', 'Y', 'Z']),
-                              dict(field1=9876, field2='ZXC', field3=['X', 'Y', 'Z'])]
+                               dict(field1=9876, field2='ZXC', field3=['X', 'Y', 'Z'])]
         )
 
         test_data = {

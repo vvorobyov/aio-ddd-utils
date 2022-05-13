@@ -10,15 +10,6 @@ def get_error_class(key: str) -> t.Type[BaseDDDException]:
     raise UnregisteredMessageClass(f'Not found error class with key {key}')
 
 
-def load_error(response: str) -> BaseDDDException:
-    data = json.loads(response)
-    code = data.get('code', None)
-    domain = data.get('domain', None)
-    error_class = get_error_class((domain, code))
-    error = error_class.load(data)
-    return error
-
-
 class BaseDomainError(DDDException, metaclass=DDDExceptionMeta):
     pass
 
@@ -29,34 +20,43 @@ class BaseServiceError(DDDException, metaclass=DDDExceptionMeta):
         is_baseclass = True
 
 
-class UnregisteredErrorClass(BaseServiceError):
+class BaseParseMessageError(BaseServiceError):
+    class Meta:
+        is_baseclass = True
+
+
+class UnregisteredErrorClass(BaseParseMessageError):
     class Meta:
         template = '91'
 
 
-class UnregisteredMessageClass(BaseServiceError):
+class UnregisteredMessageClass(BaseParseMessageError):
+
+    def __init__(self, *args, key, **kwargs):
+        super(UnregisteredMessageClass, self).__init__(*args, key=key, **kwargs)
+
     class Meta:
-        template = '92'
+        template = 'Message class by "{key}" not found'
 
 
-class JsonDecodeError(BaseServiceError):
+class JsonDecodeError(BaseParseMessageError):
     class Meta:
         template = '93'
 
 
-class ValidationError(BaseServiceError):
+class ValidationError(BaseParseMessageError):
     class Meta:
-        template = '94'
+        template = 'Error validate data'
+
+    def dump(self) -> dict:
+        result = super(ValidationError, self).dump()
+        result['data'] = {key: {'type': value.__class__.__name__, 'value': str(value)}
+                          for key, value in result['data'].items()}
+        return result
 
 
 class InternalServiceError(BaseServiceError):
-
     class Meta:
         template = '01'
 
-
 # TODO дописать классы исключений
-
-
-
-

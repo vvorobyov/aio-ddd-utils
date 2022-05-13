@@ -4,6 +4,7 @@ import datetime as dt
 
 from .core import BaseDomainMessage, DomainMessageMeta
 from . import fields
+from dddmisc import exceptions
 
 
 class DomainMessage(BaseDomainMessage, metaclass=DomainMessageMeta):
@@ -52,13 +53,9 @@ class DomainEvent(DomainMessage):
     pass
 
 
-def get_message_class(key: t.Union[t.Tuple[str, str], str]) -> t.Type[DomainMessage]:
-    if isinstance(key, str):
-        domain, name = key.split('.')
-        key_ = (domain, name)
-    else:
-        key_ = key
+def get_message_class(key: str) -> t.Type[DomainMessage]:
+
     collection = DomainMessageMeta.get_message_collection()
-    if key_ in collection:
-        return collection[key_]
-    raise ValueError(f"Message class by '{key}' not found")
+    if key in collection:
+        return collection[key]
+    raise exceptions.UnregisteredMessageClass(key=key)

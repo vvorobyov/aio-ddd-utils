@@ -1,13 +1,11 @@
 import json
 import typing as t
-import warnings
 from dataclasses import dataclass
 from uuid import UUID, uuid4
 import datetime as dt
 from types import MappingProxyType
 
 from dddmisc.abstract import CrossDomainObjectProtocol
-from dddmisc.messages import DomainCommand
 
 
 @dataclass(frozen=True)
@@ -51,11 +49,19 @@ class BaseDDDException(Exception):
         return MappingProxyType(self._extra)
 
     def set_context_from_command(self, command: CrossDomainObjectProtocol):
-        self._reference = command.__reference__
+        self.set_reference(command.__reference__)
         self.set_real_domain(command.__domain__)
 
     def set_real_domain(self, domain_name: str):
         self._domain = domain_name
+
+    def set_reference(self, reference: t.Union[UUID, str]):
+        if isinstance(reference, str):
+            reference = UUID(reference)
+        if isinstance(reference, UUID):
+            self._reference = reference
+        else:
+            raise TypeError(f"the reference mast be str or UUID, not {type(reference)!r}")
 
     def dump(self) -> dict:
         return dict(
@@ -82,8 +88,12 @@ class BaseDDDException(Exception):
 
     @classmethod
     def loads(cls: t.Type[T], data: str) -> T:
-        data = json.loads(data)
-        return cls.load(data)
+        from .errors import JsonDecodeError
+        try:
+            data = json.loads(data)
+            return cls.load(data)
+        except json.JSONDecodeError as err:
+            raise JsonDecodeError(str(err))
 
     def __repr__(self):
         return '{name}(domain={domain}): {message}.'.format(

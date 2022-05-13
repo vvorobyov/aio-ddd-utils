@@ -1,5 +1,4 @@
 import asyncio
-import json
 import typing as t
 import abc
 from asyncio import AbstractEventLoop
@@ -71,7 +70,7 @@ class AbstractRabbitDomainClient(abc.ABC):
     def parse_message(cls, message: AbstractIncomingMessage):
         message_type = message.type.upper() if message.type else None
         if message_type not in ['COMMAND', 'EVENT', 'RESPONSE', 'ERROR']:
-            raise exceptions.UnknownMessageTypeError(f'Unknown message type: {message_type}', message_type=message_type)
+            raise exceptions.UnknownMessageTypeError(message_type=message_type)
         return cls.__PARSE_METHODS[message_type](message)
 
     def create_message(self, message, reply_to: str = None) -> AbstractMessage:

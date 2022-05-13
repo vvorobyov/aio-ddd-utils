@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 
 from dddmisc.abstract import AbstractField
+from dddmisc.exceptions import JsonDecodeError, ValidationError
 
 
 class Nothing:
@@ -41,8 +42,7 @@ class BaseDomainMessage(t.Generic[T]):
                     errors[key] = err
         if not errors:
             return result
-
-        raise list(errors.values())[0]  # TODO реализовать массовую обработку ошибок
+        raise ValidationError(**errors)
 
     def _serialize(self):
         result = {}
@@ -76,7 +76,10 @@ class BaseDomainMessage(t.Generic[T]):
 
     @classmethod
     def loads(cls: t.Type[T], data: str) -> T:
-        dict_data = json.loads(data)
+        try:
+            dict_data = json.loads(data)
+        except json.JSONDecodeError as err:
+            raise JsonDecodeError(str(err))
         return cls.load(dict_data)
 
     def dump(self) -> dict:
@@ -93,7 +96,7 @@ class BaseDomainMessage(t.Generic[T]):
 
 
 class DomainMessageMeta(abc.ABCMeta):
-    __MESSAGE_COLLECTION: t.Dict[t.Tuple[str, str], t.Type[BaseDomainMessage]] = {}
+    __MESSAGE_COLLECTION: t.Dict[str, t.Type[BaseDomainMessage]] = {}
 
     def __new__(mcs, name: str, bases: t.Tuple[t.Type], attrs: dict):
         module = attrs.get('__module__')
@@ -140,12 +143,13 @@ class DomainMessageMeta(abc.ABCMeta):
             return
         domain = klass.__metadata__.domain
         name = klass.__name__
-        if (domain, name) in mcs.__MESSAGE_COLLECTION:
+        key = f'{domain}.{name}'
+        if key in mcs.__MESSAGE_COLLECTION:
             raise RuntimeError(f'Multiple message class in domain "{klass.__metadata__.domain}" with name "{name}"')
-        mcs.__MESSAGE_COLLECTION[(domain, name)] = klass
+        mcs.__MESSAGE_COLLECTION[key] = klass
 
     @classmethod
-    def get_message_collection(mcs) -> MappingProxyType[t.Tuple[str, str], t.Type[BaseDomainMessage]]:
+    def get_message_collection(mcs) -> MappingProxyType[str, t.Type[BaseDomainMessage]]:
         return MappingProxyType(mcs.__MESSAGE_COLLECTION)
 
 

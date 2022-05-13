@@ -3,6 +3,7 @@ from uuid import UUID
 import datetime as dt
 
 from .core import Nothing
+from ..exceptions import JsonDecodeError
 
 
 class DomainCommandResponse:
@@ -39,8 +40,11 @@ class DomainCommandResponse:
 
     @classmethod
     def loads(cls, data):
-        dict_data = json.loads(data)
-        return cls.load(dict_data)
+        try:
+            dict_data = json.loads(data)
+            return cls.load(dict_data)
+        except json.JSONDecodeError as err:
+            raise JsonDecodeError(str(err))
 
     def dump(self):
         result = {
