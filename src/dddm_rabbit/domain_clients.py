@@ -8,7 +8,7 @@ from yarl import URL
 from dddm_rabbit.exceptions import IncomingMessageError
 from dddmisc.exceptions import BaseDomainError
 from dddmisc.exceptions.errors import BaseServiceError
-from dddmisc.messages import get_message_class, DomainEvent, DomainCommand, DomainCommandResponse
+from dddmisc.messages import get_message_class, DDDEvent, DDDCommand, DDDResponse
 from dddm_rabbit.abstract import AbstractRabbitDomainClient
 
 
@@ -21,7 +21,7 @@ class RabbitSelfDomainClient(AbstractRabbitDomainClient):
     def __init__(self, url: t.Union[str, URL], self_domain: str, connected_domain: str, *args, **kwargs):
         super(RabbitSelfDomainClient, self).__init__(url, self_domain, self_domain, *args, **kwargs)
 
-    async def handle_command(self, command: DomainCommand, timeout: float = None):
+    async def handle_command(self, command: DDDCommand, timeout: float = None):
         raise NotImplementedError
         pass
 
@@ -54,7 +54,7 @@ class RabbitSelfDomainClient(AbstractRabbitDomainClient):
             await command_queue.bind('commands', f'{self.self_domain}.{command.__name__}')
         return command_queue
 
-    async def handle_event(self, event: DomainEvent):
+    async def handle_event(self, event: DDDEvent):
         message = self.create_message(event)
         routing_key = f'{event.get_domain_name()}.{event.__class__.__name__}'
         result = await self._event_exchange.publish(message, routing_key)  # todo обработать ошибки отправки
@@ -120,7 +120,7 @@ class RabbitOtherDomainClient(AbstractRabbitDomainClient):
         response_queue = await response_consume_channel.declare_queue(exclusive=True, auto_delete=True)
         return response_queue
 
-    async def handle_command(self, command: DomainCommand, timeout: float = None) -> DomainCommandResponse:
+    async def handle_command(self, command: DDDCommand, timeout: float = None) -> DDDResponse:
         msg = self.create_message(command, self._response_queue.name)
         routing_key = f'{command.get_domain_name()}.{command.__class__.__name__}'
         await self._command_exchange.publish(msg, routing_key)
@@ -133,7 +133,7 @@ class RabbitOtherDomainClient(AbstractRabbitDomainClient):
         else:
             return result
 
-    async def handle_event(self, event: DomainEvent):
+    async def handle_event(self, event: DDDEvent):
         pass
 
     async def _response_handler(self, message: AbstractIncomingMessage):

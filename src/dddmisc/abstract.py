@@ -1,7 +1,7 @@
 import abc
 import typing as t
 from typing import TypeVar, Type, Protocol, runtime_checkable
-from uuid import UUID
+from uuid import UUID, uuid4
 
 T = TypeVar('T')
 
@@ -49,3 +49,13 @@ class AbstractField(abc.ABC):
     @abc.abstractmethod
     def serialize(self, value) -> t.Any:
         pass
+
+
+class AbstractAggregate(abc.ABC):
+
+    def __init__(self):
+        self._reference = uuid4()
+
+    @property
+    def reference(self) -> UUID:
+        return self._reference

@@ -7,10 +7,9 @@ from uuid import UUID
 
 import yarl
 
-from .core import Nothing, BaseDomainMessage
+from .core import Nothing, BaseDDDMessage
 from ..abstract import AbstractField
-from .structure import DomainStructure
-
+from . import DDDStructure
 
 T = t.TypeVar('T')
 
@@ -19,24 +18,25 @@ class Field(AbstractField, t.Generic[T]):
 
     value_type: t.Type
 
-    def __init__(self, *, default: T = Nothing, nullable: bool = False):
+    def __init__(self, *, default: T = Nothing, nullable: bool = False, description=''):
         self.default = default
         self.nullable = nullable
+        self.description = description
         self._field_name: t.Optional[str] = None
 
     def __set_name__(self, owner, name):
         self._field_name = name
-        if not issubclass(owner, BaseDomainMessage):
+        if not issubclass(owner, BaseDDDMessage):
             raise TypeError('{field!r} can used only with subclasses of{type!r} (got {actual!r}).'.format(
                 field=self.__class__,
-                type=BaseDomainMessage,
+                type=BaseDDDMessage,
                 actual=owner.__class__,
             ))
 
-    def __get__(self, instance: 'BaseDomainMessage', owner):
+    def __get__(self, instance: 'BaseDDDMessage', owner):
         if instance is None:
             return self
-        if isinstance(instance, BaseDomainMessage):
+        if isinstance(instance, BaseDDDMessage):
             return instance.get_attr(self._field_name)
         raise
 
@@ -342,16 +342,17 @@ class List(Field):
 
 
 class Structure(Field):
-    def __init__(self, structure: t.Type[DomainStructure], **kwargs):
+
+    def __init__(self, structure: t.Type[DDDStructure], **kwargs):
         kwargs['default'] = Nothing
         super().__init__(**kwargs)
         self.structure = structure
 
     def _deserialize(self, value):
-        if isinstance(value, DomainStructure):
+        if isinstance(value, DDDStructure):
             return value
         else:
             return self.structure.load(value)
 
-    def _serialize(self, value: DomainStructure):
+    def _serialize(self, value: DDDStructure):
         return value.dump()

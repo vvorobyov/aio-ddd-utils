@@ -1,8 +1,8 @@
 import asyncio
 import typing as t
 
-from dddmisc.messages import DomainEvent, DomainCommand, DomainCommandResponse
-from dddmisc.messages.messages import DomainMessage
+from dddmisc.messages import DDDEvent, DDDCommand, DDDResponse
+from dddmisc.messages.messages import DDDMessage
 from dddmisc.messagebus.abstract import AbstractAsyncExternalMessageBus, AbstractSyncExternalMessageBus
 from dddm_rabbit.abstract import AbstractRabbitDomainClient
 from dddm_rabbit.base import BaseRabbitMessageBus
@@ -22,9 +22,11 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
             events = self._events_configs.get_events_by_domain_name(domain)
             commands = self._commands_configs.get_commands_by_domain_name(domain)
             if domain == self._domain:
-                client = RabbitSelfDomainClient(self._url, self.domain, '', events, commands, self._execute_command_handler)
+                client = RabbitSelfDomainClient(self._url, self.domain, '', events, commands,
+                                                self._execute_command_handler)
             else:
-                client = RabbitOtherDomainClient(self._url, self.domain, domain, events, commands, self._execute_event_handlers)
+                client = RabbitOtherDomainClient(self._url, self.domain, domain, events, commands,
+                                                 self._execute_event_handlers)
             self._domain_clients[domain] = client
             start_coroutines.append(client.start())
         results = await asyncio.gather(*start_coroutines, return_exceptions=True)
@@ -37,28 +39,28 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
         await asyncio.gather(*(client.stop(exception) for client in self._domain_clients.values()),
                              return_exceptions=True)
 
-    async def _execute_event_handlers(self, event: DomainEvent, publisher: str):
+    async def _execute_event_handlers(self, event: DDDEvent, publisher: str):
         if event.get_domain_name() != publisher:
             return
         handlers = self._events_configs.get_event_handlers(event)
         for handler in handlers:
             await handler(event)
 
-    async def _execute_command_handler(self, command: DomainCommand, publisher: str) -> DomainCommandResponse:
+    async def _execute_command_handler(self, command: DDDCommand, publisher: str) -> DDDResponse:
         domain = command.get_domain_name()
         if domain == self.domain and self._commands_configs.check_command_permission(command, publisher):
             handler = self._commands_configs.get_command_handler(command)
             return await handler(command)
 
-    async def handle(self, message: DomainMessage, timeout: float = None) -> t.Optional[DomainCommandResponse]:
+    async def handle(self, message: DDDMessage, timeout: float = None) -> t.Optional[DDDResponse]:
         domain = message.get_domain_name()
         client = self._domain_clients.get(domain)
-        if isinstance(message, DomainCommand):
+        if isinstance(message, DDDCommand):
             return await self._handle_command(message, timeout)
-        elif isinstance(message, DomainEvent):
+        elif isinstance(message, DDDEvent):
             return await client.handle_event(message)
 
-    async def _handle_command(self, command: DomainCommand, timeout: float = None) -> DomainCommandResponse:
+    async def _handle_command(self, command: DDDCommand, timeout: float = None) -> DDDResponse:
         domain = command.get_domain_name()
         if domain in self.registered_domains:
             client = self._domain_clients.get(domain)
@@ -66,7 +68,7 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
         else:
             raise ValueError(f'Domain "{domain}" not registered in {self}')
 
-    async def _handle_event(self, event: DomainEvent):
+    async def _handle_event(self, event: DDDEvent):
         domain = event.get_domain_name()
         if domain == self.domain:
             client = self._domain_clients.get(domain)
@@ -77,7 +79,7 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
 
 
 class SyncRabbitMessageBus(BaseRabbitMessageBus, AbstractSyncExternalMessageBus):
-    def handle(self, message: DomainMessage):
+    def handle(self, message: DDDMessage):
         pass
 
     def start(self):

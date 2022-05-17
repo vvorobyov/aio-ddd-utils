@@ -1,7 +1,7 @@
-from .core import BaseDomainMessage, DomainMessageMeta
+from dddmisc.messages.core import BaseDDDMessage, DDDMessageMeta
 
 
-class DomainStructure(BaseDomainMessage, metaclass=DomainMessageMeta):
+class DDDStructure(BaseDDDMessage, metaclass=DDDMessageMeta):
     class Meta:
         is_structure = True
         is_baseclass = True

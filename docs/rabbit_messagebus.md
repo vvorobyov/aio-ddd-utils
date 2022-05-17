@@ -31,19 +31,19 @@ def register_domains(self, *domains: str)
 - `loop: AbstractEventLoop` - EventLoop исползуемый при работе класса
 
 ```python
-def register_event_handlers(self, event: t.Type[DomainEvent], *handlers: EventHandlerType)
+def register_event_handlers(self, event: t.Type[DDDEvent], *handlers: EventHandlerType)
 ```
 Метод регистрации функций обработчиков событий.
-Обработчик должен соответствовать следующей сигнатуре `t.Callable[[DomainEvent], t.Awaitable]`.
+Обработчик должен соответствовать следующей сигнатуре `t.Callable[[DDDEvent], t.Awaitable]`.
 
 - `event` - класс сообщения
 - handlers - перечень функций обработчиков
 
 ```python
-def register_command_handler(self, command: t.Type[DomainCommand], handler: CommandHandlerType, *allowed_domains: str)
+def register_command_handler(self, command: t.Type[DDDCommand], handler: CommandHandlerType, *allowed_domains: str)
 ```
 Метод регистрации функций обработчиков команд.
-Обработчик должен соответствовать следующей сигнатуре `t.Callable[[DomainCommand], t.Awaitable[DomainCommandResponse]`.
+Обработчик должен соответствовать следующей сигнатуре `t.Callable[[DDDCommand], t.Awaitable[DDDResponse]`.
 
 - `command` - класс команды
 - `handler` - класс обработчика. Не допускается регистрация нескольких обработчиков для одной команды. 
@@ -51,7 +51,7 @@ def register_command_handler(self, command: t.Type[DomainCommand], handler: Comm
 - `allowed_domains` - перечень доменов которым разрешается осуществлять вызов комманды
 
 ```python
-def set_permission_for_command(self, command: t.Type[DomainCommand], *allowed_domains: str)
+def set_permission_for_command(self, command: t.Type[DDDCommand], *allowed_domains: str)
 ```
 Метод добавление разрешения на вызов команды для указанных доменов.
 
@@ -90,13 +90,13 @@ async def stop(self)
 - Закрываются подключения
 
 ```python
-async def handle(self, message: DomainMessage, timeout: float = None) -> t.Optional[DomainCommandResponse]:
+async def handle(self, message: DDDMessage, timeout: float = None) -> t.Optional[DDDResponse]:
 ```
 Метод публикации сообщений и событий. Допускается использование только после запуска.
 - `message` - сообщение (событие или команда)
 - `timeout` - время ожидания исполнения комманды, после истечения которого будет поднято исключение `asyncio.TimeoutError`
 
-При передаче в метод комманды в ответ будут возвращен объект `DomainCommandResponse`. Для вызовов с передечей событий ответ не предусмотрен.
+При передаче в метод комманды в ответ будут возвращен объект `DDDResponse`. Для вызовов с передечей событий ответ не предусмотрен.
 
 
 ### Пример использования

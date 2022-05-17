@@ -5,7 +5,7 @@ from uuid import UUID
 
 from yarl import URL
 
-from .structure import DomainStructure
+from . import DDDStructure
 from .core import Nothing
 
 _T = TypeVar('_T')
@@ -13,7 +13,7 @@ _T = TypeVar('_T')
 
 class Field(Generic[_T]):
     @overload
-    def __init__(self, *, default: _T = Nothing, nullable: bool = False):
+    def __init__(self, *, default: _T = Nothing, nullable: bool = False, description=''):
         ...
 
     @overload
@@ -113,9 +113,9 @@ class List(Field):
 
 class Structure(Field):
     @overload
-    def __init__(self, structure: Type[DomainStructure], *, nullable: bool = False):
+    def __init__(self, structure: Type[DDDStructure], *, nullable: bool = False):
         ...
 
     @overload
-    def __get__(self, instance, owner) -> DomainStructure:
+    def __get__(self, instance, owner) -> DDDStructure:
         ...

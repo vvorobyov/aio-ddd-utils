@@ -2,34 +2,36 @@ import asyncio
 import typing as t
 import abc
 from asyncio import AbstractEventLoop
+from types import MappingProxyType
 
 from aio_pika import connect_robust, Message
 from aio_pika.abc import AbstractConnection, AbstractMessage, AbstractIncomingMessage
 from yarl import URL
 
-
+from dddmisc.abstract import CrossDomainObjectProtocol
 from dddmisc.exceptions.core import DDDException
-from dddmisc.messages.messages import DomainMessage
-from dddmisc.messages import DomainEvent, DomainCommand, DomainCommandResponse
+from dddmisc.messages.messages import DDDMessage
+from dddmisc.messages import DDDEvent, DDDCommand, DDDResponse
 
 from . import exceptions, utils
 
 PublisherName = str
-ExecutorType = t.Callable[[DomainMessage, PublisherName], t.Awaitable[t.Optional[DomainCommandResponse]]]
+ExecutorType = t.Callable[[DDDMessage, PublisherName], t.Awaitable[t.Optional[DDDResponse]]]
 
 
 class AbstractRabbitDomainClient(abc.ABC):
-    __PARSE_METHODS = {
+    __PARSE_METHODS = MappingProxyType({
         'COMMAND': utils.parse_command,
         'EVENT': utils.parse_event,
         'RESPONSE': utils.parse_response,
         'ERROR': utils.parse_error
-    }
+    })
+
     _connection: AbstractConnection
 
     def __init__(self, url: t.Union[str, URL],
                  self_domain: str, connected_domain: str,
-                 events: t.Iterable[t.Type[DomainEvent]], commands: t.Iterable[t.Type[DomainCommand]],
+                 events: t.Iterable[t.Type[DDDEvent]], commands: t.Iterable[t.Type[DDDCommand]],
                  executor: ExecutorType,
                  *, permanent_consume=True, prefetch_count=0,
                  loop: AbstractEventLoop = None):
@@ -52,11 +54,11 @@ class AbstractRabbitDomainClient(abc.ABC):
         return self._connected_domain
 
     @abc.abstractmethod
-    async def handle_command(self, command: DomainCommand, timeout: float = None):
+    async def handle_command(self, command: DDDCommand, timeout: float = None):
         pass
 
     @abc.abstractmethod
-    async def handle_event(self, event: DomainEvent):
+    async def handle_event(self, event: DDDEvent):
         pass
 
     async def start(self):
@@ -73,22 +75,18 @@ class AbstractRabbitDomainClient(abc.ABC):
             raise exceptions.UnknownMessageTypeError(message_type=message_type)
         return cls.__PARSE_METHODS[message_type](message)
 
-    def create_message(self, message, reply_to: str = None) -> AbstractMessage:
+    def create_message(self, message: CrossDomainObjectProtocol, reply_to: str = None) -> AbstractMessage:
+
         user_id = self.self_domain
-        message_id = None
-        correlation_id = None
+        message_id = correlation_id = str(message.__reference__)
         headers = {}
         body = message.dumps().encode()
-        if isinstance(message, DomainMessage):
-            message_id = str(message.__reference__)
-            headers['X-DDD-OBJECT-KEY'] = f'{message.get_domain_name()}.{message.__class__.__name__}'
-            type_ = 'COMMAND' if isinstance(message, DomainCommand) else 'EVENT'
+        headers['X-DDD-OBJECT-KEY'] = f'{message.__domain__}.{message.__class__.__name__}'
+        if isinstance(message, DDDMessage):
+            type_ = 'COMMAND' if isinstance(message, DDDCommand) else 'EVENT'
         elif isinstance(message, DDDException):
-            correlation_id = message.__reference__
-            headers['X-DDD-OBJECT-KEY'] = f'{message.__domain__}.{message.__class__.__name__}'
             type_ = 'ERROR'
-        elif isinstance(message, DomainCommandResponse):
-            correlation_id = message.__reference__
+        elif isinstance(message, DDDResponse):
             type_ = 'RESPONSE'
         else:
             raise TypeError(f'Unknown message type "{type(message)}"')

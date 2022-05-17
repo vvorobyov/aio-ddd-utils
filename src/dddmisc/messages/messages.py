@@ -1,13 +1,11 @@
-from uuid import uuid4
-import typing as t
 import datetime as dt
+from uuid import uuid4
 
-from .core import BaseDomainMessage, DomainMessageMeta
-from . import fields
-from dddmisc import exceptions
+from dddmisc.messages.core import BaseDDDMessage, DDDMessageMeta
 
 
-class DomainMessage(BaseDomainMessage, metaclass=DomainMessageMeta):
+class DDDMessage(BaseDDDMessage, metaclass=DDDMessageMeta):
+    from . import fields
     __reference__ = fields.Uuid(nullable=True)
     __timestamp__ = fields.Float(nullable=True)
 
@@ -15,6 +13,10 @@ class DomainMessage(BaseDomainMessage, metaclass=DomainMessageMeta):
         super().__init__(**kwargs)
         self._reference = uuid4()
         self._timestamp = dt.datetime.now().timestamp()
+
+    @property
+    def __domain__(self) -> str:
+        return self.__metadata__.domain
 
     def get_attr(self, item: str):
         if item == '__reference__':
@@ -45,17 +47,9 @@ class DomainMessage(BaseDomainMessage, metaclass=DomainMessageMeta):
         return result
 
 
-class DomainCommand(DomainMessage):
+class DDDCommand(DDDMessage):
     pass
 
 
-class DomainEvent(DomainMessage):
+class DDDEvent(DDDMessage):
     pass
-
-
-def get_message_class(key: str) -> t.Type[DomainMessage]:
-
-    collection = DomainMessageMeta.get_message_collection()
-    if key in collection:
-        return collection[key]
-    raise exceptions.UnregisteredMessageClass(key=key)

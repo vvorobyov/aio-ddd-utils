@@ -4,7 +4,7 @@ from aio_pika.abc import AbstractIncomingMessage
 
 from dddmisc.exceptions.core import BaseDDDException
 from dddmisc.exceptions.errors import get_error_class
-from dddmisc.messages import DomainCommand, get_message_class, DomainEvent, DomainCommandResponse
+from dddmisc.messages import DDDCommand, get_message_class, DDDEvent, DDDResponse
 
 T = TypeVar('T')
 
@@ -15,16 +15,16 @@ def _parse_domain_message(message: AbstractIncomingMessage) -> Any:
     return obj
 
 
-def parse_command(message: AbstractIncomingMessage) -> DomainCommand:
+def parse_command(message: AbstractIncomingMessage) -> DDDCommand:
     return _parse_domain_message(message)
 
 
-def parse_event(message: AbstractIncomingMessage) -> DomainEvent:
+def parse_event(message: AbstractIncomingMessage) -> DDDEvent:
     return _parse_domain_message(message)
 
 
-def parse_response(message: AbstractIncomingMessage) -> DomainCommandResponse:
-    obj = DomainCommandResponse.loads(message.body.decode())
+def parse_response(message: AbstractIncomingMessage) -> DDDResponse:
+    obj = DDDResponse.loads(message.body.decode())
     return obj
 
 

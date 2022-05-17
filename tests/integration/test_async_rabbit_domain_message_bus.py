@@ -5,7 +5,7 @@ from uuid import uuid4, UUID
 import pytest
 
 from dddmisc.exceptions import InternalServiceError, BaseDomainError
-from dddmisc.messages import DomainEvent, fields, DomainCommand, DomainCommandResponse
+from dddmisc.messages import DDDEvent, fields, DDDCommand, DDDResponse
 from dddm_rabbit import AsyncRabbitMessageBus
 
 
@@ -13,7 +13,7 @@ class TestAsyncRabbitMessageBus:
     async def test_publish_event(self, event_loop: AbstractEventLoop, rabbit):
         async with rabbit() as cfg1:
             async with rabbit() as cfg2:
-                class TestEvent(DomainEvent):
+                class TestEvent(DDDEvent):
                     value = fields.String()
 
                     class Meta:
@@ -22,7 +22,7 @@ class TestAsyncRabbitMessageBus:
                 await cfg1.client.create_user_permission(cfg2.vhost, cfg1.vhost, '.*', '.*', '.*')
                 result = event_loop.create_future()
 
-                async def tst_event_handler(event: DomainEvent):
+                async def tst_event_handler(event: DDDEvent):
                     result.set_result(event)
 
                 self_mb = AsyncRabbitMessageBus(url=cfg1.url, domain=cfg1.vhost)
@@ -47,7 +47,7 @@ class TestAsyncRabbitMessageBus:
     async def test_publish_command_with_success_response(self, rabbit):
         async with rabbit() as cfg1:
             async with rabbit() as cfg2:
-                class TestCommand(DomainCommand):
+                class TestCommand(DDDCommand):
                     value = fields.String()
 
                     class Meta:
@@ -56,9 +56,9 @@ class TestAsyncRabbitMessageBus:
                 await cfg1.client.create_user_permission(cfg2.vhost, cfg1.vhost, '.*', '.*', '.*')
                 results = []
 
-                async def tst_cmd_handler(command: DomainCommand):
+                async def tst_cmd_handler(command: DDDCommand):
                     results.append(command)
-                    return DomainCommandResponse(uuid4(), command.__reference__)
+                    return DDDResponse(command.__reference__, aggregate_ref=uuid4())
 
                 self_mb = AsyncRabbitMessageBus(url=cfg1.url, domain=cfg1.vhost)
                 other_mb = AsyncRabbitMessageBus(url=cfg2.url, domain=cfg2.vhost)
@@ -73,9 +73,9 @@ class TestAsyncRabbitMessageBus:
                 cmd = TestCommand(value='Abc')
                 response = await asyncio.wait_for(other_mb.handle(cmd), 5)
 
-                assert isinstance(response, DomainCommandResponse)
+                assert isinstance(response, DDDResponse)
                 assert response.__reference__ == cmd.__reference__
-                assert isinstance(response.reference, UUID)
+                assert isinstance(response.aggregate_ref, UUID)
                 assert len(results) == 1
                 assert results[0] == cmd
 
@@ -85,7 +85,7 @@ class TestAsyncRabbitMessageBus:
     async def test_publish_command_with_timeout(self, rabbit):
         async with rabbit() as cfg1:
             async with rabbit() as cfg2:
-                class TestCommand(DomainCommand):
+                class TestCommand(DDDCommand):
                     value = fields.String()
 
                     class Meta:
@@ -93,9 +93,9 @@ class TestAsyncRabbitMessageBus:
 
                 await cfg1.client.create_user_permission(cfg2.vhost, cfg1.vhost, '.*', '.*', '.*')
 
-                async def tst_cmd_handler(command: DomainCommand):
+                async def tst_cmd_handler(command: DDDCommand):
                     await asyncio.sleep(1)
-                    return DomainCommandResponse(uuid4(), command.__reference__)
+                    return DDDResponse(uuid4())
 
                 self_mb = AsyncRabbitMessageBus(url=cfg1.url, domain=cfg1.vhost)
                 other_mb = AsyncRabbitMessageBus(url=cfg2.url, domain=cfg2.vhost)
@@ -116,7 +116,7 @@ class TestAsyncRabbitMessageBus:
     async def test_publish_command_with_error_response(self, rabbit):
         async with rabbit() as cfg1:
             async with rabbit() as cfg2:
-                class TestCommand(DomainCommand):
+                class TestCommand(DDDCommand):
                     value = fields.String()
 
                     class Meta:
@@ -124,7 +124,7 @@ class TestAsyncRabbitMessageBus:
 
                 await cfg1.client.create_user_permission(cfg2.vhost, cfg1.vhost, '.*', '.*', '.*')
 
-                async def tst_cmd_handler(command: DomainCommand):
+                async def tst_cmd_handler(command: DDDCommand):
                     raise InternalServiceError('test error')
 
                 self_mb = AsyncRabbitMessageBus(url=cfg1.url, domain=cfg1.vhost)

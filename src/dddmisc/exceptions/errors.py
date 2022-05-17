@@ -40,8 +40,7 @@ class UnregisteredMessageClass(BaseParseMessageError):
 
 
 class JsonDecodeError(BaseParseMessageError):
-    class Meta:
-        template = '93'
+    pass
 
 
 class ValidationError(BaseParseMessageError):

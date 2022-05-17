@@ -4,6 +4,7 @@ import typing as t
 from dataclasses import dataclass
 from types import MappingProxyType
 
+from dddmisc import exceptions
 from dddmisc.abstract import AbstractField
 from dddmisc.exceptions import JsonDecodeError, ValidationError
 
@@ -23,7 +24,7 @@ class Metadata:
 T = t.TypeVar('T')
 
 
-class BaseDomainMessage(t.Generic[T]):
+class BaseDDDMessage(t.Generic[T]):
     __metadata__: Metadata
 
     def __init__(self, **kwargs):
@@ -55,7 +56,7 @@ class BaseDomainMessage(t.Generic[T]):
         return self._data[item]
 
     def __eq__(self, other):
-        return isinstance(other, BaseDomainMessage) and self._data == other._data
+        return isinstance(other, BaseDDDMessage) and self._data == other._data
 
     def __hash__(self):
         return hash(repr(self._data))
@@ -95,8 +96,8 @@ class BaseDomainMessage(t.Generic[T]):
         return json.dumps(data)
 
 
-class DomainMessageMeta(abc.ABCMeta):
-    __MESSAGE_COLLECTION: t.Dict[str, t.Type[BaseDomainMessage]] = {}
+class DDDMessageMeta(abc.ABCMeta):
+    __MESSAGE_COLLECTION: t.Dict[str, t.Type[BaseDDDMessage]] = {}
 
     def __new__(mcs, name: str, bases: t.Tuple[t.Type], attrs: dict):
         module = attrs.get('__module__')
@@ -104,28 +105,29 @@ class DomainMessageMeta(abc.ABCMeta):
         base_class = mcs._get_base_class(fullname, bases)
         if base_class not in bases:
             bases = (base_class, *bases)
-        fields = {key: field for key, field in attrs.items() if isinstance(field, AbstractField)}
-        meta = attrs.get('Meta', None)
-        attrs['__metadata__'] = mcs._create_metadata(base_class, meta, fields)
+        if attrs['__module__'] != __name__:
+            fields = {key: field for key, field in attrs.items() if isinstance(field, AbstractField)}
+            meta = attrs.get('Meta', None)
+            attrs['__metadata__'] = mcs._create_metadata(base_class, meta, fields)
         klass = super().__new__(mcs, name, bases, attrs)
         mcs._register_message_class(klass)
         return klass
 
     @staticmethod
-    def _get_base_class(name: str, bases: t.Tuple[t.Type]) -> t.Type[BaseDomainMessage]:
-        domain_bases = [base for base in bases if issubclass(base, BaseDomainMessage)]
+    def _get_base_class(name: str, bases: t.Tuple[t.Type]) -> t.Type[BaseDDDMessage]:
+        domain_bases = [base for base in bases if issubclass(base, BaseDDDMessage)]
         if len(domain_bases) > 1:
-            raise RuntimeError(f'{name} inherit from many "BaseDomainMessage" classes')
+            raise RuntimeError(f'{name} inherit from many "BaseDDDMessage" classes')
         elif len(domain_bases) == 0:
-            return BaseDomainMessage
+            return BaseDDDMessage
         else:
             return domain_bases[0]
 
     @staticmethod
-    def _create_metadata(base: t.Type[BaseDomainMessage],
+    def _create_metadata(base: t.Type[BaseDDDMessage],
                          meta: t.Type, fields: dict[str, AbstractField]) -> Metadata:
-        base_meta = getattr(base, '__metadata__', Metadata(fields={}, domain=None, is_baseclass=True,
-                                                           is_structure=False))
+        base_meta = getattr(base, '__metadata__', Metadata(fields=MappingProxyType({}), domain=None,
+                                                           is_baseclass=True, is_structure=False))
         is_baseclass = getattr(meta, 'is_baseclass', False)
         is_structure = base_meta.is_structure or bool(getattr(meta, 'is_structure', False))
         if is_structure:
@@ -138,7 +140,7 @@ class DomainMessageMeta(abc.ABCMeta):
         return Metadata(fields=fields, domain=domain, is_baseclass=is_baseclass, is_structure=is_structure)
 
     @classmethod
-    def _register_message_class(mcs, klass: t.Type[BaseDomainMessage]):
+    def _register_message_class(mcs, klass: t.Type[BaseDDDMessage]):
         if klass.__metadata__.is_baseclass or klass.__metadata__.domain is None:
             return
         domain = klass.__metadata__.domain
@@ -149,7 +151,19 @@ class DomainMessageMeta(abc.ABCMeta):
         mcs.__MESSAGE_COLLECTION[key] = klass
 
     @classmethod
-    def get_message_collection(mcs) -> MappingProxyType[str, t.Type[BaseDomainMessage]]:
+    def get_message_collection(mcs) -> MappingProxyType[str, t.Type[BaseDDDMessage]]:
         return MappingProxyType(mcs.__MESSAGE_COLLECTION)
+
+    @property
+    def __domain__(cls: BaseDDDMessage) -> str:
+        return cls.__metadata__.domain
+
+
+def get_message_class(key: str) -> t.Type[BaseDDDMessage]:
+
+    collection = DDDMessageMeta.get_message_collection()
+    if key in collection:
+        return collection[key]
+    raise exceptions.UnregisteredMessageClass(key=key)
 
 

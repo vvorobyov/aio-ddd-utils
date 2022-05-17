@@ -9,9 +9,9 @@ import pytest
 import yarl
 
 from dddmisc.exceptions import UnregisteredMessageClass, ValidationError
-from dddmisc.messages import (fields, get_message_class, DomainStructure)
-from dddmisc.messages.messages import DomainMessage
-from dddmisc.messages.core import Metadata, BaseDomainMessage, DomainMessageMeta
+from dddmisc.messages import (fields, get_message_class, DDDStructure)
+from dddmisc.messages.core import Metadata, BaseDDDMessage, DDDMessageMeta
+from dddmisc.messages.messages import DDDMessage
 
 
 class TestFields:
@@ -60,7 +60,7 @@ class TestFields:
         (fields.Email(), 'user@localhost', 'user@localhost'),
     ])
     def test_validate_value(self, field: fields.Field, value, result):
-        field.__set_name__(BaseDomainMessage, 'test')
+        field.__set_name__(BaseDDDMessage, 'test')
         assert field.deserialize(value) == result
 
     def test_use_field_with_not_domain_message_class(self):
@@ -77,7 +77,7 @@ class TestFields:
 class TestDomainMessageMeta:
 
     def test_set_default_metadata(self):
-        class Test(BaseDomainMessage, metaclass=DomainMessageMeta):
+        class Test(BaseDDDMessage, metaclass=DDDMessageMeta):
             pass
 
         assert hasattr(Test, '__metadata__')
@@ -87,7 +87,7 @@ class TestDomainMessageMeta:
         assert Test.__metadata__.fields == {}
 
     def test_set_metadata_from_meta(self):
-        class Test(BaseDomainMessage, metaclass=DomainMessageMeta):
+        class Test(BaseDDDMessage, metaclass=DDDMessageMeta):
             class Meta:
                 is_baseclass = True
                 domain = 'test-meta-class'
@@ -96,15 +96,15 @@ class TestDomainMessageMeta:
         assert Test.__metadata__.is_baseclass
 
     def test_automatic_set_abstract_base_class(self):
-        class Test(metaclass=DomainMessageMeta):
+        class Test(metaclass=DDDMessageMeta):
             pass
 
-        assert issubclass(Test, BaseDomainMessage)
+        assert issubclass(Test, BaseDDDMessage)
         assert Test.__metadata__.domain is None
         assert Test.__metadata__.is_baseclass is True
 
     def test_inherit_metadata(self):
-        class Test(BaseDomainMessage, metaclass=DomainMessageMeta):
+        class Test(BaseDDDMessage, metaclass=DDDMessageMeta):
             class Meta:
                 is_baseclass = True
                 domain = 'test-meta-class'
@@ -122,7 +122,7 @@ class TestDomainMessageMeta:
         assert Test3.__metadata__.is_baseclass
 
     def test_set_fields(self):
-        class Test(BaseDomainMessage, metaclass=DomainMessageMeta):
+        class Test(BaseDDDMessage, metaclass=DDDMessageMeta):
             __reference__ = fields.Uuid()
             __timestamp__ = fields.Datetime()
             other_str_fields = fields.String()
@@ -137,7 +137,7 @@ class TestDomainMessageMeta:
         }
 
     def test_inherit_fields(self):
-        class Test(BaseDomainMessage, metaclass=DomainMessageMeta):
+        class Test(BaseDDDMessage, metaclass=DDDMessageMeta):
             __reference__ = fields.Uuid()
             __timestamp__ = fields.Datetime()
             other_str_fields = fields.String()
@@ -152,7 +152,7 @@ class TestDomainMessageMeta:
         }
 
     def test_replace_inherit_fields(self):
-        class Test(BaseDomainMessage, metaclass=DomainMessageMeta):
+        class Test(BaseDDDMessage, metaclass=DDDMessageMeta):
             __reference__ = fields.Uuid()
             __timestamp__ = fields.Datetime()
             other_str_fields = fields.String()
@@ -168,7 +168,7 @@ class TestDomainMessageMeta:
 
     def test_double_registered_class(self):
         def register_class():
-            class Test(BaseDomainMessage, metaclass=DomainMessageMeta):
+            class Test(BaseDDDMessage, metaclass=DDDMessageMeta):
                 __reference__ = fields.Uuid()
                 __timestamp__ = fields.Datetime()
                 other_str_fields = fields.String()
@@ -182,7 +182,7 @@ class TestDomainMessageMeta:
             register_class()
 
     def test_validators_on_init_class_instance(self):
-        class Test(metaclass=DomainMessageMeta):
+        class Test(metaclass=DDDMessageMeta):
             other_str_field = fields.String()
             test_nullable = fields.String(nullable=True)
             test_default = fields.Integer(default=100)
@@ -205,14 +205,14 @@ class TestDomainMessageMeta:
         assert str(list(exc_info.value.extra.values())[0]) == 'Not set required value'
 
     def test_init_baseclass(self):
-        class Test(metaclass=DomainMessageMeta):
+        class Test(metaclass=DDDMessageMeta):
             pass
 
         with pytest.raises(TypeError, match="cannot create instance of 'Test' class, because this is baseclass"):
             Test()
 
     def test_class_by_name(self):
-        class Test1(metaclass=DomainMessageMeta):
+        class Test1(metaclass=DDDMessageMeta):
             __reference__ = fields.Uuid()
             __timestamp__ = fields.Datetime()
             other_str_fields = fields.String()
@@ -222,14 +222,14 @@ class TestDomainMessageMeta:
             class Meta:
                 domain = 'test_class_by_name'
 
-        class Test2(metaclass=DomainMessageMeta):
+        class Test2(metaclass=DDDMessageMeta):
             __reference__ = fields.Uuid()
             __timestamp__ = fields.Datetime()
 
             class Meta:
                 domain = 'test_class_by_name'
 
-        class Test3(metaclass=DomainMessageMeta):
+        class Test3(metaclass=DDDMessageMeta):
             __reference__ = fields.Uuid()
             __timestamp__ = fields.Datetime()
 
@@ -264,7 +264,7 @@ class TestDomainMessage:
             # 'dict_field': {'test': 'data'}
         }
 
-        class TestStructure(DomainStructure):
+        class TestStructure(DDDStructure):
             string_field = fields.String()
             uuid_field = fields.Uuid()
             integer_field = fields.Integer()
@@ -298,7 +298,7 @@ class TestDomainMessage:
         assert obj.list_field == (1, 2, 3, 4, 5)
 
     def test_structure_dump(self):
-        class TestCommand(DomainStructure):
+        class TestCommand(DDDStructure):
             string_field = fields.String()
             uuid_field = fields.Uuid()
             integer_field = fields.Integer()
@@ -378,12 +378,12 @@ class TestDomainMessage:
             }
         }
 
-        class TestStructure(DomainStructure):
+        class TestStructure(DDDStructure):
             field1 = fields.Integer()
             field2 = fields.String()
             field3: tuple[str, ...] = fields.List(fields.String())
 
-        class TestCommand(DomainMessage):
+        class TestCommand(DDDMessage):
             string_field = fields.String()
             uuid_field = fields.Uuid()
             integer_field = fields.Integer()
@@ -428,12 +428,12 @@ class TestDomainMessage:
         assert obj.list_struct_field[0] is not obj.list_struct_field[1]
 
     def test_message_dump(self):
-        class TestStructure(DomainStructure):
+        class TestStructure(DDDStructure):
             field1 = fields.Integer()
             field2 = fields.String()
             field3 = fields.List(fields.String())
 
-        class TestCommand(DomainMessage):
+        class TestCommand(DDDMessage):
             string_field = fields.String()
             uuid_field = fields.Uuid()
             integer_field = fields.Integer()
