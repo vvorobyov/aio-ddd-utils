@@ -50,10 +50,6 @@ class BaseDDDException(Exception):
 
     def set_context_from_command(self, command: CrossDomainObjectProtocol):
         self.set_reference(command.__reference__)
-        self.set_real_domain(command.__domain__)
-
-    def set_real_domain(self, domain_name: str):
-        self._domain = domain_name
 
     def set_reference(self, reference: t.Union[UUID, str]):
         if isinstance(reference, str):
@@ -96,9 +92,10 @@ class BaseDDDException(Exception):
             raise JsonDecodeError(str(err))
 
     def __repr__(self):
-        return '{name}(domain={domain}): {message}.'.format(
+        domain = self.__domain__
+        return '{name}(domain="{domain}"): {message}.'.format(
             name=self.__class__.__name__,
-            domain=self._domain if self._domain else '"domain not set"',
+            domain=domain if domain else 'domain not set',
             message=self._message,
         )
 
@@ -145,10 +142,10 @@ class DDDExceptionMeta(type):
     def _register_error_class(mcs, klass: t.Type[BaseDDDException]):
         if not issubclass(klass, BaseDDDException) or klass.__metadata__.is_baseclass:
             return
-        domain = klass.__metadata__.domain
+        domain = klass.__domain__
         name = klass.__name__
         key = f'{domain}.{name}'
-        if key is mcs.__EXCEPTIONS_COLLECTION:
+        if key in mcs.__EXCEPTIONS_COLLECTION:
             raise RuntimeError(
                 f'Multiple register error class in domain "{domain}" with name "{name}"')
         mcs.__EXCEPTIONS_COLLECTION[key] = klass
