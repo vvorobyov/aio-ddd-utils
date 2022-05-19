@@ -11,6 +11,7 @@ python = "^3.9"
 yarl = "^1.7.2"
 python-environ = "^0.4.54"
 aio-pika = "^7.2.0"
+pytest = "^7.1.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
@@ -36,6 +37,7 @@ omit = []
 [tool.coverage.report]
 exclude_lines = [
     "@abc.abstractmethod",
+    "@t.overload",
     "Protocol",
     "def __hash__",
     "pragma: no cover",
@@ -43,5 +45,5 @@ exclude_lines = [
 
 [tool.poe.tasks]
 lint = "poetry run pylama ./src --ignore E501 --linters print,pyflakes --format pylint"
-test = "poetry run pytest --cov=dddmisc --cov-report=term-missing tests"
+test = "poetry run pytest --cov=dddmisc --cov=dddm_rabbit --cov-report=term-missing tests"
 clear = "rm -fr src/*.egg-info dist .pytest_cache .coverage"

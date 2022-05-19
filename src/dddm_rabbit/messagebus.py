@@ -11,8 +11,13 @@ from dddm_rabbit.domain_clients import RabbitSelfDomainClient, RabbitOtherDomain
 
 class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBus):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args,
+                 self_domain_class: t.Type[AbstractRabbitDomainClient] = None,
+                 other_domain_client: t.Type[AbstractRabbitDomainClient] = None,
+                 **kwargs):
         self._domain_clients: t.Dict[str, AbstractRabbitDomainClient] = {}
+        self._self_domain_class = self_domain_class or RabbitSelfDomainClient
+        self._other_domain_class = other_domain_client or RabbitOtherDomainClient
         super(AsyncRabbitMessageBus, self).__init__(*args, **kwargs)
 
     async def start(self):
@@ -22,11 +27,11 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
             events = self._events_configs.get_events_by_domain_name(domain)
             commands = self._commands_configs.get_commands_by_domain_name(domain)
             if domain == self._domain:
-                client = RabbitSelfDomainClient(self._url, self.domain, '', events, commands,
-                                                self._execute_command_handler)
+                client = self._self_domain_class(
+                    self._url, self.domain, '', events, commands, self._execute_command_handler)
             else:
-                client = RabbitOtherDomainClient(self._url, self.domain, domain, events, commands,
-                                                 self._execute_event_handlers)
+                client = self._other_domain_class(self._url, self.domain, domain, events, commands,
+                                                  self._execute_event_handlers)
             self._domain_clients[domain] = client
             start_coroutines.append(client.start())
         results = await asyncio.gather(*start_coroutines, return_exceptions=True)
@@ -52,8 +57,16 @@ class AsyncRabbitMessageBus(BaseRabbitMessageBus, AbstractAsyncExternalMessageBu
             handler = self._commands_configs.get_command_handler(command)
             return await handler(command)
 
-    async def handle(self, message: DDDMessage, timeout: float = None) -> t.Optional[DDDResponse]:
-        domain = message.get_domain_name()
+    @t.overload
+    async def handle(self, message: DDDEvent, timeout: float = None) -> t.NoReturn:
+        ...
+
+    @t.overload
+    async def handle(self, message: DDDCommand, timeout: float = None) -> DDDResponse:
+        ...
+
+    async def handle(self, message: t.Union[DDDEvent, DDDCommand], timeout=None):
+        domain = message.__domain__
         client = self._domain_clients.get(domain)
         if isinstance(message, DDDCommand):
             return await self._handle_command(message, timeout)

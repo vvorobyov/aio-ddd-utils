@@ -21,7 +21,8 @@ class EventConfig:
         return tuple(self._handlers)
 
     def add_handlers(self, handlers: t.Iterable[EventHandlerType]):
-        self._handlers.update(handlers)
+        if handlers:
+            self._handlers.update(handlers)
 
 
 class EventConfigsCollection:
@@ -67,7 +68,8 @@ class CommandConfig:
         return self._handler
 
     def set_handler(self, handler):
-        object.__setattr__(self, '_handler', handler)
+        if handler:
+            object.__setattr__(self, '_handler', handler)
 
     def add_permissions(self, allowed_domains: t.Iterable[str]):
         self._allowed_domains.update(allowed_domains)
@@ -81,11 +83,14 @@ class CommandConfigsCollection:
     def __init__(self):
         self._configs: dict[t.Type[DDDCommand], CommandConfig] = {}
 
-    def set(self, command_type: t.Type[DDDCommand], handler: CommandHandlerType):
-        self._configs.setdefault(command_type, CommandConfig(command_type)).set_handler(handler)
+    def set(self, command_type: t.Type[DDDCommand], handler: CommandHandlerType = None):
+        self._add_config(command_type).set_handler(handler)
 
     def set_permissions(self, command_type: t.Type[DDDCommand], *allowed_domains: str):
-        self._configs.setdefault(command_type, CommandConfig(command_type)).add_permissions(allowed_domains)
+        self._add_config(command_type).add_permissions(allowed_domains)
+
+    def _add_config(self, command_type: t.Type[DDDCommand]):
+        return self._configs.setdefault(command_type, CommandConfig(command_type))
 
     def get_commands_by_domain_name(self, domain_name: str):
         return (command_cfg.command_type
@@ -126,7 +131,7 @@ class BaseExternalMessageBus:
     def registered_domains(self) -> t.Iterable[str]:
         return tuple(self._registered_domains)
 
-    def register_domains(self, *domains: str):
+    def _register_domains(self, *domains: str):
         """
         Метод регистрации наименований доменов внешних сервисов с которыми будет взаимодействовать класс,
         в частности отправлять комманды. Для каждого зарегистрированного домена будет поднято подключение
@@ -136,18 +141,46 @@ class BaseExternalMessageBus:
         """
         self._registered_domains.update(domains)
 
-    def register_event_handlers(self, event: t.Type[DDDEvent], *handlers: EventHandlerType):
-        self.register_domains(event.get_domain_name())
+    def register_event(self, event: t.Type[DDDEvent], *handlers: EventHandlerType):
+        """
+        Метод регистрации события во внешней шине сообщений. Требуется регистрация события как собственного домена,
+        так и для события чужого домена. При регистрации события передача handlers является не обязательной.
+        Args:
+            event: Класс события наследованный от DDDEvent
+            *handlers: Функции обработчики событий.
+
+        Returns:
+
+        """
+        if self.domain != event.__domain__ and not handlers:
+            raise RuntimeError('Reuired set handler for consume to other domain events')
+        self._register_domains(event.__domain__)
         self._events_configs.add(event, *handlers)
 
-    def register_command_handler(self, command: t.Type[DDDCommand], handler: CommandHandlerType,
-                                 *allowed_domains: str):
-        self.register_domains(command.get_domain_name())
-        self._commands_configs.set(command, handler)
-        self.set_permission_for_command(command, *allowed_domains)
+    def register_command(self, command: t.Type[DDDCommand], handler: CommandHandlerType = None,
+                         *allowed_domains: str):
+        """
+        Метод регистрации команды во внешней шине сообщений. Требует регистрации команды как для собственного домена,
+        так и для команд из чужого домена. При регистрации команд чужого домена передача handler и allowed_domains
+        не требуется.
+        Args:
+            command: Класс команды наследованной от DDDCommand
+            handler: Функция обработчик команды. Передается только для команд своего домена
+            *allowed_domains:
+
+        Returns:
+
+        """
+        if command.__domain__ == self.domain:
+            self.set_permission_for_command(command, *allowed_domains)
+            self._commands_configs.set(command, handler)
+        else:
+            self._commands_configs.set(command)
+
+        self._register_domains(command.__domain__)
 
     def set_permission_for_command(self, command: t.Type[DDDCommand], *allowed_domains: str):
-        self.register_domains(command.get_domain_name())
+        self._register_domains(command.get_domain_name())
         self._commands_configs.set_permissions(command, *allowed_domains)
 
 

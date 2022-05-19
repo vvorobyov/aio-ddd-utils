@@ -2,8 +2,8 @@ import abc
 import typing as t
 from asyncio import AbstractEventLoop
 
-from dddmisc.messages import DDDResponse
-from dddmisc.messages.messages import DDDMessage
+from dddmisc import DDDCommand
+from dddmisc.messages import DDDResponse, DDDEvent
 
 __all__ = ['AbstractSyncExternalMessageBus', 'AbstractAsyncExternalMessageBus']
 
@@ -18,10 +18,19 @@ class AbstractAsyncExternalMessageBus(abc.ABC):
     def set_loop(self, loop: AbstractEventLoop):
         if not hasattr(self, '_loop'):
             self._loop = loop
-        raise RuntimeError('loop is already set')
+        else:
+            raise RuntimeError('loop is already set')
+
+    @t.overload
+    async def handle(self, message: DDDCommand, timeout: float = None) -> DDDResponse:
+        ...
+
+    @t.overload
+    async def handle(self, message: DDDEvent, timeout: float = None) -> t.NoReturn:
+        ...
 
     @abc.abstractmethod
-    async def handle(self, message: DDDMessage, timeout: float = None) -> t.Optional[DDDResponse]:
+    async def handle(self, message, timeout=None):
         ...
 
     @abc.abstractmethod
@@ -35,8 +44,14 @@ class AbstractAsyncExternalMessageBus(abc.ABC):
 
 class AbstractSyncExternalMessageBus(abc.ABC):
 
+    @t.overload
+    def handle(self, message: DDDCommand, timeout: float = None) -> DDDResponse: ...
+
+    @t.overload
+    def handle(self, message: DDDEvent, timeout: float = None) -> t.NoReturn: ...
+
     @abc.abstractmethod
-    def handle(self, message: DDDMessage):
+    def handle(self, message, timeout=None):
         ...
 
     @abc.abstractmethod

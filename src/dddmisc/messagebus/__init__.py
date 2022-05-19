@@ -1,2 +1,4 @@
-from . import typing
-from .abstract import AbstractSyncExternalMessageBus, AbstractAsyncExternalMessageBus
+from .abstract import (AbstractSyncExternalMessageBus,
+                       AbstractAsyncExternalMessageBus)
+from .base import BaseExternalMessageBus
+

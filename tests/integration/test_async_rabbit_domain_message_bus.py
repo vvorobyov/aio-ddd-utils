@@ -28,7 +28,7 @@ class TestAsyncRabbitMessageBus:
                 self_mb = AsyncRabbitMessageBus(url=cfg1.url, domain=cfg1.vhost)
                 other_mb = AsyncRabbitMessageBus(url=cfg2.url, domain=cfg2.vhost)
 
-                other_mb.register_event_handlers(TestEvent, tst_event_handler)
+                other_mb.register_event(TestEvent, tst_event_handler)
 
                 await self_mb.start()
                 await other_mb.start()
@@ -63,9 +63,9 @@ class TestAsyncRabbitMessageBus:
                 self_mb = AsyncRabbitMessageBus(url=cfg1.url, domain=cfg1.vhost)
                 other_mb = AsyncRabbitMessageBus(url=cfg2.url, domain=cfg2.vhost)
 
-                self_mb.register_command_handler(TestCommand, tst_cmd_handler)
+                self_mb.register_command(TestCommand, tst_cmd_handler)
                 self_mb.set_permission_for_command(TestCommand, cfg2.vhost)
-                other_mb.register_domains(cfg1.vhost)
+                other_mb.register_command(TestCommand)
 
                 await self_mb.start()
                 await other_mb.start()
@@ -100,8 +100,8 @@ class TestAsyncRabbitMessageBus:
                 self_mb = AsyncRabbitMessageBus(url=cfg1.url, domain=cfg1.vhost)
                 other_mb = AsyncRabbitMessageBus(url=cfg2.url, domain=cfg2.vhost)
 
-                self_mb.register_command_handler(TestCommand, tst_cmd_handler, cfg2.vhost)
-                other_mb.register_domains(cfg1.vhost)
+                self_mb.register_command(TestCommand, tst_cmd_handler, cfg2.vhost)
+                other_mb.register_command(TestCommand)
 
                 await self_mb.start()
                 await other_mb.start()
@@ -130,8 +130,8 @@ class TestAsyncRabbitMessageBus:
                 self_mb = AsyncRabbitMessageBus(url=cfg1.url, domain=cfg1.vhost)
                 other_mb = AsyncRabbitMessageBus(url=cfg2.url, domain=cfg2.vhost)
 
-                self_mb.register_command_handler(TestCommand, tst_cmd_handler, cfg2.vhost)
-                other_mb.register_domains(cfg1.vhost)
+                self_mb.register_command(TestCommand, tst_cmd_handler, cfg2.vhost)
+                other_mb.register_command(TestCommand)
 
                 await self_mb.start()
                 await other_mb.start()

@@ -115,7 +115,7 @@ def bootstrap() -> AsyncRabbitMessageBus:
     import os
     url = os.environ.get('DDD_RMQ_MESSAGEBUS_URL')
     mb = AsyncRabbitMessageBus(url=url, domain='example')
-    mb.register_event_handlers(CustomEvent, custom_event_handler)
+    mb.register_event(CustomEvent, custom_event_handler)
     return mb
 
 
