@@ -27,10 +27,6 @@ class TestBaseExternalMessageBus:
             class Meta:
                 domain = 'test-consume-event'
 
-        class TestEvent3(DDDEvent):
-            class Meta:
-                domain = 'test-consume-event'
-
         class TestEvent4(DDDEvent):
             class Meta:
                 domain = 'test-consume-event'

@@ -4,13 +4,13 @@ from uuid import UUID
 import datetime as dt
 
 from .core import Nothing
-from ..abstract import AbstractAggregate
 from ..exceptions import JsonDecodeError
+from ..aggregate import BaseAggregate
 
 
 class DDDResponse:
 
-    def __init__(self, reference: UUID, *, aggregate_ref: UUID = None, aggregate: AbstractAggregate = None):
+    def __init__(self, reference: UUID, *, aggregate_ref: UUID = None, aggregate: BaseAggregate = None):
         self._reference = reference
         self._timestamp = dt.datetime.now().timestamp()
         self._aggregator_ref = aggregate.reference if aggregate else aggregate_ref
@@ -35,7 +35,7 @@ class DDDResponse:
         return self._aggregator_ref
 
     @property
-    def aggregate(self) -> t.Optional[AbstractAggregate]:
+    def aggregate(self) -> t.Optional[BaseAggregate]:
         return self._aggregate
 
     @classmethod

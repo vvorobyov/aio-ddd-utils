@@ -51,11 +51,7 @@ class AbstractField(abc.ABC):
         pass
 
 
-class AbstractAggregate(abc.ABC):
 
-    def __init__(self):
-        self._reference = uuid4()
 
-    @property
-    def reference(self) -> UUID:
-        return self._reference
+
+
