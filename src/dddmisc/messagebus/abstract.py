@@ -75,7 +75,7 @@ class AbstractRepository(abc.ABC, t.Generic[A, T]):
     def __init__(self, connection: T):
         self._seen: set[A] = set()
         self._connection = connection
-        self._commit = False
+        self.events = set()
 
     @t.final
     def add(self, aggregate: A):
@@ -85,7 +85,6 @@ class AbstractRepository(abc.ABC, t.Generic[A, T]):
             self._seen.add(aggregate)
         else:
             raise RuntimeError(f'aggregate {aggregate.reference} is exist')
-        self._commit = False
 
     @t.final
     def _get_from_cache(self, reference: UUID) -> t.Optional[A]:
@@ -93,13 +92,14 @@ class AbstractRepository(abc.ABC, t.Generic[A, T]):
                      if aggregate.reference == reference), None)
 
     @t.final
-    def collect_events(self) -> t.Iterable[DDDEvent]:
-        if not self._commit:
-            return ()
-        events: set[DDDEvent] = set()
+    def _collect_events(self):
         for aggregate in self._seen:
-            events.update(aggregate.get_aggregate_events())
-        return events
+            self.events.update(aggregate.get_aggregate_events())
+
+    @t.final
+    def clear_events(self):
+        self._collect_events()
+        self.events.clear()
 
 
 class AbstractAsyncRepository(AbstractRepository[A, T], abc.ABC):
@@ -123,7 +123,7 @@ class AbstractAsyncRepository(AbstractRepository[A, T], abc.ABC):
     async def apply_changes(self):
         for aggregate in self._seen:
             await self._add_to_storage(aggregate)
-        self._commit = True
+        self._collect_events()
 
 
 class AbstractSyncRepository(AbstractRepository[A, T], abc.ABC):
@@ -147,47 +147,55 @@ class AbstractSyncRepository(AbstractRepository[A, T], abc.ABC):
     def apply_changes(self):
         for aggregate in self._seen:
             self._add_to_storage(aggregate)
-        self._commit = True
+        self._collect_events()
 
 
-class AbstractUnitOfWork(t.Generic[A, T]):
-    repository_class: t.Type[AbstractRepository[A, T]]
-    _repository: AbstractRepository[A, T]
+R = t.TypeVar('R', bound=t.Union[AbstractSyncRepository, AbstractAsyncRepository])
 
-    def __init__(self, engine: t.Any = None):
+
+class AbstractUnitOfWork(t.Generic[R, T]):
+    repository_class: t.Type[R]
+    _repository: R
+
+    def __init__(self, engine: t.Any = None,
+                 *, repository_class: t.Type[R] = None):
         self._engine = engine
         self._events: set[DDDEvent] = set()
         self._current_transaction_events: set[DDDEvent] = set()
         self._in_context = False
-
-        self._repository_class = type(self.repository_class)
+        self._repository_class = repository_class or type(self).repository_class
         self._transaction: T = None
 
     @property
-    def repository(self):
-        if hasattr(self, 'repository'):
+    def repository(self) -> R:
+        if hasattr(self, '_repository'):
             return self._repository
         else:
-            raise RuntimeError('Need enter to unit of worc context manager before access to "repository"')
+            raise RuntimeError('Need enter to UnitOfWork context manager before access to "repository"')
 
+    @t.final
     def collect_events(self) -> tuple[DDDEvent]:
         """Отдаем все накопленные события"""
         events = tuple(sorted(self._events, key=lambda x: x.__timestamp__))
         self._events.clear()
         return events
 
+    @t.final
     def _post_commit(self):
         """Добавляем события репозитория в набор событий по транзакции"""
-        self._current_transaction_events.update(self.repository.collect_events())
-        delattr(self, 'repository')
+        self._current_transaction_events.update(self.repository.events)
+        self.repository.clear_events()
+        delattr(self, '_repository')
 
+    @t.final
     def _post_rollback(self):
         """Очищаем текущие события репозитория"""
-        self.repository.collect_events()
-        delattr(self, 'repository')
+        if hasattr(self, '_repository'):
+            self.repository.clear_events()
+            delattr(self, '_repository')
 
     def __enter__(self):
-        if hasattr(self, '_repository'):
+        if self._in_context:
             raise RuntimeError("Double enter to UnitOfWork's context manager")
         self._repository = self.repository_class(self._transaction)
         self._current_transaction_events.clear()
@@ -195,27 +203,30 @@ class AbstractUnitOfWork(t.Generic[A, T]):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._events.update(self._current_transaction_events)
+        self._current_transaction_events.clear()
         self._in_context = False
 
 
-class AbstractAsyncUnitOfWork(AbstractUnitOfWork[A, T]):
-    repository_class: t.Type[AbstractAsyncRepository[A, T]]
-    repository: AbstractAsyncRepository[A, T]
+class AbstractAsyncUnitOfWork(AbstractUnitOfWork[R, T]):
 
+    @t.final
     async def __aenter__(self):
         self._current_transaction_events.clear()
         self._transaction = await self._begin_transaction(self._engine)
         self.__enter__()
 
+    @t.final
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.rollback()
         self.__exit__(exc_type, exc_val, exc_tb)
 
+    @t.final
     async def commit(self):
         await self.repository.apply_changes()
         await self._commit_transaction(self._transaction)
         self._post_commit()
 
+    @t.final
     async def rollback(self):
         await self._rollback_transaction(self._transaction)
         self._post_rollback()
@@ -233,25 +244,26 @@ class AbstractAsyncUnitOfWork(AbstractUnitOfWork[A, T]):
         ...
 
 
-class AbstractSyncUnitOfWork(AbstractUnitOfWork[A, T]):
-    
-    repository_class: t.Type[AbstractSyncRepository[A, T]]
-    repository: AbstractSyncRepository[A, T]
+class AbstractSyncUnitOfWork(AbstractUnitOfWork[R, T]):
 
+    @t.final
     def __enter__(self):
         self._transaction = self._begin_transaction(self._engine)
         super(AbstractSyncUnitOfWork, self).__enter__()
 
+    @t.final
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.rollback()
         super(AbstractSyncUnitOfWork, self).__exit__(exc_type, exc_val, exc_tb)
 
+    @t.final
     def commit(self):
         self.repository.apply_changes()
         self._commit_transaction(self._transaction)
         self._post_commit()
 
-    async def rollback(self):
+    @t.final
+    def rollback(self):
         self._rollback_transaction(self._transaction)
         self._post_rollback()
 
